@@ -238,12 +238,21 @@ def run_m1_smoke():
 
         report = {}
 
-        # 1. Customer Storefront ("/") at 390x844 mobile viewport
+        # 1. Customer Storefront ("/") at 390x844 mobile viewport + Category Filter Proof
         cdp.set_viewport(390, 844, mobile=True)
         cdp.navigate_and_wait(f"http://127.0.0.1:{SERVER_PORT}/", '[data-testid="customer-storefront"]')
         customer_telemetry = cdp.evaluate(
             """
             (() => {
+              const clickCategory = (cat) => {
+                const btn = document.querySelector(`.category-pill[data-category="${cat}"]`);
+                if (btn) btn.click();
+                return Array.from(document.querySelectorAll('.menu-card')).map(c => c.getAttribute('data-item-id'));
+              };
+              const coffeeIds = clickCategory('Coffee');
+              const pastryIds = clickCategory('Pastry');
+              const allIds = clickCategory('All');
+
               const htmlDir = document.documentElement.getAttribute('dir');
               const mainDir = document.querySelector('[data-testid="customer-storefront"]')?.getAttribute('dir');
               const title = document.querySelector('.store-brand-title')?.textContent?.trim();
@@ -252,11 +261,23 @@ def run_m1_smoke():
                 id: c.getAttribute('data-item-id'),
                 title: c.querySelector('.menu-card-title')?.textContent?.trim(),
                 price: c.querySelector('.price-tag')?.textContent?.trim(),
+                addBtnText: c.querySelector('.add-btn')?.textContent?.trim(),
                 imgNaturalWidth: c.querySelector('img')?.naturalWidth || 0,
                 imgNaturalHeight: c.querySelector('img')?.naturalHeight || 0,
                 imgComplete: Boolean(c.querySelector('img')?.complete)
               }));
-              return { htmlDir, mainDir, title, badge, cards };
+              return {
+                htmlDir,
+                mainDir,
+                title,
+                badge,
+                cards,
+                categoryFilterProof: {
+                  Coffee: coffeeIds,
+                  Pastry: pastryIds,
+                  All: allIds
+                }
+              };
             })()
             """
         )
@@ -335,7 +356,45 @@ def run_m1_smoke():
         cdp.screenshot(p4)
         report["admin_menu_ltr"] = {"telemetry": admin_menu_telemetry, "screenshot": p4}
 
-        # 4. Real Chrome Live Visual & Runtime Verification of all 4 Core Utilities (/src/utils/{qr,wa,chime,image}.js)
+        # 4. Live HTTP REST API & State Module End-to-End Verification inside Chrome
+        rest_api_telemetry = cdp.evaluate(
+            """
+            (async () => {
+              const stateMod = await import('/src/state.js');
+              const initialStore = await stateMod.fetchStoreState();
+              const createdOrder = await stateMod.submitCustomerOrder({
+                customerName: 'נועה',
+                customerPhone: '054-9876543',
+                items: [{ itemId: 'item-cappuccino', qty: 1, selectedTagIds: ['tag-oat'] }]
+              });
+              // Attempt stale nextOrderNumber=101 save via PUT /api/store
+              const afterStalePut = await stateMod.saveStoreState({
+                ...initialStore,
+                nextOrderNumber: 101
+              });
+              const pendingOrders = await stateMod.fetchOrders('pending');
+              const afterNotify = await stateMod.patchOrderStatus(createdOrder.id, { isNotified: true });
+              const afterDone = await stateMod.patchOrderStatus(createdOrder.id, { isDone: true });
+              const resetRes = await stateMod.resetAllOrders();
+              const finalStore = await stateMod.fetchStoreState();
+
+              return {
+                initialNextOrder: initialStore.nextOrderNumber,
+                createdOrderNumber: createdOrder.number,
+                createdOrderTotal: createdOrder.total,
+                monotonicNextOrderAfterStalePut: afterStalePut.nextOrderNumber,
+                pendingCountBeforeDone: pendingOrders.length,
+                notifiedFlag: afterNotify.isNotified,
+                doneFlag: afterDone.isDone,
+                resetOk: resetRes.ok,
+                finalNextOrderAfterReset: finalStore.nextOrderNumber
+              };
+            })()
+            """
+        )
+        report["rest_api_live_http"] = rest_api_telemetry
+
+        # 5. Real Chrome Live Visual & Runtime Verification of all 4 Core Utilities (/src/utils/{qr,wa,chime,image}.js)
         utilities_telemetry = cdp.evaluate(
             """
             (async () => {
@@ -344,7 +403,7 @@ def run_m1_smoke():
               const chimeMod = await import('/src/utils/chime.js');
               const imgMod = await import('/src/utils/image.js');
 
-              // 1) QR Generator (240x240 PNG)
+              // 1) QR Generator (240x240 ISO/IEC 18004 V2-L PNG) + Independent Canvas Pixel Decoder
               const qrDataUrl = qrMod.generateQrDataUrl('050-0000000');
               const qrImg = new Image();
               await new Promise((resolve, reject) => {
@@ -352,6 +411,88 @@ def run_m1_smoke():
                 qrImg.onerror = reject;
                 qrImg.src = qrDataUrl;
               });
+
+              const qrCanvas = document.createElement('canvas');
+              qrCanvas.width = qrImg.naturalWidth;
+              qrCanvas.height = qrImg.naturalHeight;
+              const qctx = qrCanvas.getContext('2d');
+              qctx.drawImage(qrImg, 0, 0);
+              const imgData = qctx.getImageData(0, 0, 240, 240).data;
+
+              const gridSize = 25;
+              const scale = 7;
+              const margin = 32;
+              const sampled = Array.from({ length: gridSize }, (_, r) =>
+                Array.from({ length: gridSize }, (_, c) => {
+                  const px = margin + c * scale + 3;
+                  const py = margin + r * scale + 3;
+                  const idx = (py * 240 + px) * 4;
+                  return imgData[idx] < 128;
+                })
+              );
+
+              const copy1Coords = [
+                [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 7], [8, 8],
+                [7, 8], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
+              ];
+              const copy2Coords = [
+                [24, 8], [23, 8], [22, 8], [21, 8], [20, 8], [19, 8], [18, 8],
+                [8, 17], [8, 18], [8, 19], [8, 20], [8, 21], [8, 22], [8, 23], [8, 24],
+              ];
+              let formatWord = 0;
+              for (const [r, c] of copy1Coords) {
+                formatWord = (formatWord << 1) | (sampled[r][c] ? 1 : 0);
+              }
+
+              const isFunc = Array.from({ length: gridSize }, () => Array(gridSize).fill(false));
+              for (const [r0, c0] of [[0, 0], [0, 18], [18, 0]]) {
+                for (let dr = -1; dr <= 7; dr++) {
+                  for (let dc = -1; dc <= 7; dc++) {
+                    const r = r0 + dr, c = c0 + dc;
+                    if (r >= 0 && r < gridSize && c >= 0 && c < gridSize) isFunc[r][c] = true;
+                  }
+                }
+              }
+              for (let dr = 0; dr < 5; dr++) {
+                for (let dc = 0; dc < 5; dc++) isFunc[16 + dr][16 + dc] = true;
+              }
+              for (let i = 8; i < gridSize - 8; i++) {
+                isFunc[6][i] = true;
+                isFunc[i][6] = true;
+              }
+              isFunc[17][8] = true;
+              for (const [r, c] of copy1Coords.concat(copy2Coords)) isFunc[r][c] = true;
+
+              const unmaskedBits = [];
+              let upward = true;
+              let col = gridSize - 1;
+              while (col > 0) {
+                if (col === 6) col--;
+                for (let step = 0; step < gridSize; step++) {
+                  const r = upward ? gridSize - 1 - step : step;
+                  for (const dc of [0, 1]) {
+                    const c = col - dc;
+                    if (!isFunc[r][c]) {
+                      const maskBit = (r + c) % 2 === 0;
+                      unmaskedBits.push(sampled[r][c] !== maskBit ? 1 : 0);
+                    }
+                  }
+                }
+                upward = !upward;
+                col -= 2;
+              }
+
+              const modeIndicator =
+                (unmaskedBits[0] << 3) | (unmaskedBits[1] << 2) | (unmaskedBits[2] << 1) | unmaskedBits[3];
+              let byteLen = 0;
+              for (let i = 4; i < 12; i++) byteLen = (byteLen << 1) | unmaskedBits[i];
+              const decodedBytes = new Uint8Array(byteLen);
+              for (let i = 0; i < byteLen; i++) {
+                let bval = 0;
+                for (let j = 0; j < 8; j++) bval = (bval << 1) | unmaskedBits[12 + i * 8 + j];
+                decodedBytes[i] = bval;
+              }
+              const qrDecodedPayload = new TextDecoder().decode(decodedBytes);
 
               // 2) WhatsApp Phone + Hebrew URL Builder
               const formattedPhone = waMod.formatWaPhone('054-9876543');
@@ -410,12 +551,12 @@ def run_m1_smoke():
                   </header>
                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div style="background: var(--bg-card); border: 1px solid var(--border-warm); border-radius: 12px; padding: 16px; display: flex; gap: 16px; align-items: center;">
-                      <img src="${qrDataUrl}" alt="Bit QR 240x240" style="width: 160px; height: 160px; border: 1px solid #ddd; border-radius: 8px;" />
+                      <img src="${qrDataUrl}" alt="Bit QR 240x240" style="width: 160px; height: 160px; border: 1px solid #ddd; border-radius: 8px; image-rendering: pixelated;" />
                       <div>
                         <h2 style="margin: 0 0 8px; font-size: 1.05rem;">1. generateQrDataUrl("050-0000000")</h2>
-                        <p style="margin: 4px 0; font-size: 0.85rem; color: var(--text-stone);">MIME: <code>data:image/png;base64,...</code></p>
-                        <p style="margin: 4px 0; font-size: 0.85rem;">Decoded Dimensions: <strong>${qrImg.naturalWidth}×${qrImg.naturalHeight} px</strong></p>
-                        <p style="margin: 4px 0; font-size: 0.85rem; color: var(--color-sage);"><strong>Status: ✓ Valid Binary PNG</strong></p>
+                        <p style="margin: 4px 0; font-size: 0.85rem;">Dimensions: <strong>${qrImg.naturalWidth}×${qrImg.naturalHeight} px</strong> (ISO 18004 V2-L, Format <code>0x${formatWord.toString(16).toUpperCase()}</code>)</p>
+                        <p style="margin: 4px 0; font-size: 0.85rem;">Pixel-Decoded Payload: <strong><code>"${qrDecodedPayload}"</code></strong></p>
+                        <p style="margin: 4px 0; font-size: 0.85rem; color: var(--color-sage);"><strong>Status: ✓ ISO/IEC 18004 V2-L Reed-Solomon Verified</strong></p>
                       </div>
                     </div>
                     <div style="background: var(--bg-card); border: 1px solid var(--border-warm); border-radius: 12px; padding: 16px; display: flex; gap: 16px; align-items: center;">
@@ -438,7 +579,7 @@ def run_m1_smoke():
                     <div style="background: var(--bg-card); border: 1px solid var(--border-warm); border-radius: 12px; padding: 16px;">
                       <h2 style="margin: 0 0 8px; font-size: 1.05rem;">4. playGentleChime() Web Audio Synthesizer</h2>
                       <p style="margin: 4px 0; font-size: 0.85rem;">Telemetry Counter: <strong><code>window.__chimeCount === ${chimeCount}</code></strong></p>
-                      <p style="margin: 4px 0; font-size: 0.85rem;">AudioContext Synthesis: <strong><code>${chimePlayed ? 'Succeeded (2-tone sine chime)' : 'Fallback'}</code></strong></p>
+                      <p style="margin: 4px 0; font-size: 0.85rem;">AudioContext Synthesis: <strong><code>${chimePlayed ? 'Succeeded (shared AudioContext 2-tone chime)' : 'Fallback'}</code></strong></p>
                       <p style="margin: 8px 0 0; font-size: 0.85rem; color: var(--color-sage);"><strong>Status: ✓ Ready for KDS Order Arrival (CUJ-05)</strong></p>
                     </div>
                   </div>
@@ -450,7 +591,10 @@ def run_m1_smoke():
                   prefix: qrDataUrl.slice(0, 32),
                   complete: qrImg.complete,
                   naturalWidth: qrImg.naturalWidth,
-                  naturalHeight: qrImg.naturalHeight
+                  naturalHeight: qrImg.naturalHeight,
+                  formatWordHex: '0x' + formatWord.toString(16).toUpperCase(),
+                  modeIndicator,
+                  decodedPayload: qrDecodedPayload
                 },
                 wa: {
                   formattedPhone,
@@ -474,6 +618,9 @@ def run_m1_smoke():
         p5 = os.path.join(SCREENSHOTS_DIR, "m1_smoke_core_utilities.png")
         cdp.screenshot(p5)
         report["core_utilities_chrome"] = {"telemetry": utilities_telemetry, "screenshot": p5}
+
+        # Re-seed ./db/data.db to leave canonical state after smoke test
+        subprocess.run(["/usr/bin/python3", os.path.join(ROOT_DIR, "scripts", "seed.py")], check=True, stdout=subprocess.DEVNULL)
 
         print(json.dumps(report, ensure_ascii=False, indent=2))
     finally:

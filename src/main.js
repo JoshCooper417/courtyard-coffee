@@ -15,25 +15,18 @@ export async function renderCurrentRoute() {
     const store = await fetchStoreState();
     const path = window.location.pathname;
 
-    if (path.startsWith("/admin/kds")) {
+    if (path === "/admin" || path.startsWith("/admin/")) {
       document.documentElement.setAttribute("dir", "ltr");
       document.documentElement.setAttribute("lang", "en");
       if (!isPinUnlocked(store)) {
         mountPinGateModal(appEl, store, () => renderCurrentRoute());
         return;
       }
-      mountKdsRoute(appEl, store);
-      return;
-    }
-
-    if (path.startsWith("/admin/menu")) {
-      document.documentElement.setAttribute("dir", "ltr");
-      document.documentElement.setAttribute("lang", "en");
-      if (!isPinUnlocked(store)) {
-        mountPinGateModal(appEl, store, () => renderCurrentRoute());
-        return;
+      if (path.startsWith("/admin/menu")) {
+        mountAdminMenuRoute(appEl, store);
+      } else {
+        mountKdsRoute(appEl, store);
       }
-      mountAdminMenuRoute(appEl, store);
       return;
     }
 

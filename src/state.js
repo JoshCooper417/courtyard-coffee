@@ -56,11 +56,15 @@ export async function fetchOrders(status = null) {
   return resp.json();
 }
 
-export async function patchOrderStatus(orderId, status) {
+export async function patchOrderStatus(orderId, patchOrStatus) {
+  const bodyObj =
+    typeof patchOrStatus === "object" && patchOrStatus !== null
+      ? patchOrStatus
+      : { status: patchOrStatus };
   const resp = await fetch(`/api/orders/${encodeURIComponent(orderId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(bodyObj),
   });
   if (!resp.ok) {
     throw new Error(`Failed to update order status: ${resp.status}`);

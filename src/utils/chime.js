@@ -1,7 +1,9 @@
 /**
  * Web Audio gentle two-note chime synthesizer for Barista KDS.
- * Increments window.__chimeCount for deterministic verification.
+ * Reuses a shared AudioContext instance and increments window.__chimeCount for deterministic verification.
  */
+
+let sharedAudioCtx = null;
 
 export function playGentleChime() {
   if (typeof window !== "undefined") {
@@ -10,7 +12,13 @@ export function playGentleChime() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return false;
-    const ctx = new AudioCtx();
+    if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
+      sharedAudioCtx = new AudioCtx();
+    }
+    const ctx = sharedAudioCtx;
+    if (ctx.state === "suspended" && typeof ctx.resume === "function") {
+      ctx.resume().catch(() => {});
+    }
     const now = ctx.currentTime;
 
     const notes = [523.25, 659.25]; // C5 -> E5 warm chime
@@ -31,7 +39,6 @@ export function playGentleChime() {
     });
     return true;
   } catch (_err) {
-    // Ignore autoplay restriction errors in headless mode; telemetry is already recorded
     return false;
   }
 }
