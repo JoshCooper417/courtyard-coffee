@@ -52,6 +52,7 @@ def build_initial_seed_state() -> dict:
     return {
         "isOpen": True,
         "closedNoteHe": "סגור כעת, נשוב בקרוב",
+        "closedMessageHe": "סגור כעת, נשוב בקרוב",
         "bitPhone": env_defaults.get("DEFAULT_BIT_PHONE", "050-0000000"),
         "adminPin": env_defaults.get("DEFAULT_ADMIN_PIN", "1234"),
         "nextOrderNumber": 101,
@@ -239,6 +240,7 @@ def save_store_state(
         for key in (
             "isOpen",
             "closedNoteHe",
+            "closedMessageHe",
             "bitPhone",
             "adminPin",
             "photoAlbum",
@@ -247,6 +249,24 @@ def save_store_state(
         ):
             if key in payload:
                 merged[key] = payload[key]
+
+        # Keep closedNoteHe and closedMessageHe synchronized
+        old_note = current.get("closedNoteHe") or current.get("closedMessageHe") or "סגור כעת, נשוב בקרוב"
+        if "closedNoteHe" in payload and "closedMessageHe" in payload:
+            if payload["closedNoteHe"] != old_note:
+                resolved_note = payload["closedNoteHe"]
+            elif payload["closedMessageHe"] != old_note:
+                resolved_note = payload["closedMessageHe"]
+            else:
+                resolved_note = payload["closedNoteHe"]
+            merged["closedNoteHe"] = resolved_note
+            merged["closedMessageHe"] = resolved_note
+        elif "closedNoteHe" in payload:
+            merged["closedNoteHe"] = payload["closedNoteHe"]
+            merged["closedMessageHe"] = payload["closedNoteHe"]
+        elif "closedMessageHe" in payload:
+            merged["closedNoteHe"] = payload["closedMessageHe"]
+            merged["closedMessageHe"] = payload["closedMessageHe"]
 
         current_next = int(current.get("nextOrderNumber", 101))
         incoming_next = int(payload.get("nextOrderNumber", current_next))

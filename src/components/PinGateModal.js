@@ -8,17 +8,18 @@ export function mountPinGateModal(container, store, onUnlocked) {
   let errorMsg = "";
 
   function render() {
+    const errClass = errorMsg ? "has-error" : "";
     container.innerHTML = `
       <div class="admin-shell" dir="ltr">
         <div class="modal-backdrop" data-testid="pin-gate-modal">
-          <div class="modal-card">
+          <div class="modal-card ${errClass}">
             <h1 class="pin-modal-title">Staff Access Required</h1>
             <p class="pin-modal-desc">Enter the 4-digit staff PIN to access Courtyard Coffee Admin &amp; KDS.</p>
             <form id="pin-gate-form">
               <input
                 id="pin-gate-input"
                 data-testid="pin-input"
-                class="pin-input"
+                class="pin-input ${errClass}"
                 type="password"
                 inputmode="numeric"
                 maxlength="8"

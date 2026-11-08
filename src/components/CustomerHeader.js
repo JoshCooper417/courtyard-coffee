@@ -18,7 +18,7 @@ export function renderCustomerHeader(store) {
       ${
         !isOpen
           ? `<div class="closed-banner" data-testid="closed-banner" role="status">${
-              store?.closedNoteHe || "סגור כעת, נשוב בקרוב"
+              store?.closedNoteHe || store?.closedMessageHe || "סגור כעת, נשוב בקרוב"
             }</div>`
           : ""
       }
