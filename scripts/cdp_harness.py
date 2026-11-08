@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Pure-Python stdlib Chrome DevTools Protocol (CDP) Live Browser Smoke & Red -> Green Harness
-for Courtyard Coffee. Zero Node/npm dependencies.
+Pure-Python stdlib Chrome DevTools Protocol (CDP) Live Browser Smoke & CUJ Verification Harness
+for Courtyard Coffee (Milestone 1 + Milestone 2 CUJ-01..03). Zero Node/npm dependencies.
 """
 import base64
 import json
@@ -195,6 +195,220 @@ def wait_for_http(url: str, timeout: float = 10.0):
     raise RuntimeError(f"Service at {url} did not become ready: {last_err}")
 
 
+def run_m2_cujs(cdp: CDPClient, report: dict):
+    """
+    Executes Milestone 2 Customer Storefront & Checkout CUJ-01, CUJ-02, and CUJ-03
+    on a 390x844 mobile viewport and captures all 7 required screenshots.
+    """
+    subprocess.run(
+        ["/usr/bin/python3", os.path.join(ROOT_DIR, "scripts", "seed.py")],
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    cdp.set_viewport(390, 844, mobile=True)
+    cdp.navigate_and_wait(f"http://127.0.0.1:{SERVER_PORT}/", '[data-testid="customer-storefront"]')
+
+    # Wait 3.1s on idle customer storefront to prove Zero Customer Polling
+    fetch_before_wait = cdp.evaluate("window.__storeFetchCount || 0")
+    time.sleep(3.1)
+    fetch_after_wait = cdp.evaluate("window.__storeFetchCount || 0")
+
+    s1 = os.path.join(SCREENSHOTS_DIR, "cuj01_initial_storefront.png")
+    cdp.screenshot(s1)
+
+    # CUJ-01: Add untagged Butter Croissant (12 NIS) -> Inline Stepper -> Increment to 2 (24 NIS)
+    cuj01_telemetry = cdp.evaluate(
+        """
+        (() => {
+          const addCroissantBtn = document.querySelector('[data-testid="add-item-item-croissant"]');
+          addCroissantBtn.click();
+          const sheetAfterFirstClick = Boolean(document.querySelector('[data-testid="tag-bottom-sheet"]'));
+          const qtyAfterFirstClick = document.querySelector('[data-testid="stepper-qty-item-croissant"]')?.textContent?.trim();
+
+          const incBtn = document.querySelector('[data-testid="stepper-inc-item-croissant"]');
+          incBtn.click();
+          const qtyAfterSecondClick = document.querySelector('[data-testid="stepper-qty-item-croissant"]')?.textContent?.trim();
+          const cartCountText = document.querySelector('[data-testid="cart-bar-count"]')?.textContent?.trim();
+          const cartTotalText = document.querySelector('[data-testid="cart-bar-total"]')?.textContent?.trim();
+
+          return {
+            sheetAfterFirstClick,
+            qtyAfterFirstClick,
+            qtyAfterSecondClick,
+            cartCountText,
+            cartTotalText
+          };
+        })()
+        """
+    )
+    s2 = os.path.join(SCREENSHOTS_DIR, "cuj01_pastry_added.png")
+    cdp.screenshot(s2)
+
+    # CUJ-02 Step A: Click "+ הוסף" on tagged Cappuccino (14 NIS) -> TagBottomSheet opens
+    cuj02_open_telemetry = cdp.evaluate(
+        """
+        (() => {
+          const addCapBtn = document.querySelector('[data-testid="add-item-item-cappuccino"]');
+          addCapBtn.click();
+          const sheetPresent = Boolean(document.querySelector('[data-testid="tag-bottom-sheet"]'));
+          const oatBtn = document.querySelector('[data-testid="tag-pill-tag-oat"]');
+          const decafBtn = document.querySelector('[data-testid="tag-pill-tag-decaf"]');
+          const syrupBtn = document.querySelector('[data-testid="tag-pill-tag-syrup"]');
+          return {
+            sheetPresent,
+            oatText: oatBtn?.textContent?.trim(),
+            oatDisabled: Boolean(oatBtn?.disabled),
+            decafText: decafBtn?.textContent?.trim(),
+            decafDisabled: Boolean(decafBtn?.disabled),
+            syrupText: syrupBtn?.textContent?.trim(),
+            syrupDisabled: Boolean(syrupBtn?.disabled),
+            confirmBtnInitialText: document.querySelector('[data-testid="confirm-customization-btn"]')?.textContent?.trim()
+          };
+        })()
+        """
+    )
+    s3 = os.path.join(SCREENSHOTS_DIR, "cuj02_bottom_sheet_open.png")
+    cdp.screenshot(s3)
+
+    # CUJ-02 Step B: Select Oat Milk (+2 NIS) and enter note "חם מאוד"
+    cuj02_selected_telemetry = cdp.evaluate(
+        """
+        (() => {
+          const oatBtn = document.querySelector('[data-testid="tag-pill-tag-oat"]');
+          oatBtn.click();
+          const noteInput = document.querySelector('[data-testid="item-note-input"]');
+          noteInput.value = 'חם מאוד';
+          noteInput.dispatchEvent(new Event('input', { bubbles: true }));
+          const oatSelected = document.querySelector('[data-testid="tag-pill-tag-oat"]')?.classList.contains('selected');
+          const confirmBtnUpdatedText = document.querySelector('[data-testid="confirm-customization-btn"]')?.textContent?.trim();
+          return {
+            oatSelected,
+            noteValue: noteInput.value,
+            confirmBtnUpdatedText
+          };
+        })()
+        """
+    )
+    s4 = os.path.join(SCREENSHOTS_DIR, "cuj02_bottom_sheet_selected.png")
+    cdp.screenshot(s4)
+
+    # CUJ-02 Step C: Confirm customization -> Cart updates to 3 items / 40 NIS
+    cuj02_cart_telemetry = cdp.evaluate(
+        """
+        (() => {
+          const confirmBtn = document.querySelector('[data-testid="confirm-customization-btn"]');
+          confirmBtn.click();
+          return {
+            sheetClosed: !document.querySelector('[data-testid="tag-bottom-sheet"]'),
+            cartCountText: document.querySelector('[data-testid="cart-bar-count"]')?.textContent?.trim(),
+            cartTotalText: document.querySelector('[data-testid="cart-bar-total"]')?.textContent?.trim()
+          };
+        })()
+        """
+    )
+    s5 = os.path.join(SCREENSHOTS_DIR, "cuj02_cart_updated.png")
+    cdp.screenshot(s5)
+
+    # CUJ-03 Step A: Open CheckoutSheet, fill "דניאל" & "054-9876543"
+    cuj03_sheet_telemetry = cdp.evaluate(
+        """
+        (() => {
+          const cartBar = document.querySelector('[data-testid="sticky-cart-bar"]');
+          cartBar.click();
+          const nameInput = document.querySelector('[data-testid="checkout-name-input"]');
+          const phoneInput = document.querySelector('[data-testid="checkout-phone-input"]');
+          nameInput.value = 'דניאל';
+          nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+          phoneInput.value = '054-9876543';
+          phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
+          return {
+            checkoutSheetOpen: Boolean(document.querySelector('[data-testid="checkout-sheet"]')),
+            summaryTotalText: document.querySelector('[data-testid="checkout-total-price"]')?.textContent?.trim(),
+            submitBtnText: document.querySelector('[data-testid="submit-order-btn"]')?.textContent?.trim()
+          };
+        })()
+        """
+    )
+    s6 = os.path.join(SCREENSHOTS_DIR, "cuj03_checkout_sheet_filled.png")
+    cdp.screenshot(s6)
+
+    # CUJ-03 Step B: Submit order -> StaticReceipt #101 with 240x240 QR & Copy Phone button
+    cuj03_receipt_telemetry = cdp.evaluate(
+        """
+        (async () => {
+          const submitBtn = document.querySelector('[data-testid="submit-order-btn"]');
+          submitBtn.click();
+          for (let i = 0; i < 60; i++) {
+            if (document.querySelector('[data-testid="static-receipt"]')) break;
+            await new Promise(r => setTimeout(r, 50));
+          }
+          const qrImg = document.querySelector('[data-testid="receipt-qr-img"]');
+          if (qrImg && !qrImg.complete) {
+            await new Promise(r => { qrImg.onload = r; qrImg.onerror = r; });
+          }
+          const copyBtn = document.querySelector('[data-testid="copy-phone-btn"]');
+          const copyBtnTextBefore = copyBtn?.textContent?.trim();
+          if (copyBtn) copyBtn.click();
+          const copyBtnTextAfter = document.querySelector('[data-testid="copy-phone-btn"]')?.textContent?.trim();
+
+          return {
+            receiptPresent: Boolean(document.querySelector('[data-testid="static-receipt"]')),
+            orderNumberText: document.querySelector('[data-testid="receipt-order-number"]')?.textContent?.trim(),
+            receiptTotalText: document.querySelector('[data-testid="receipt-total"]')?.textContent?.trim(),
+            qrSrcPrefix: qrImg?.getAttribute('src')?.slice(0, 22) || '',
+            qrNaturalWidth: qrImg?.naturalWidth || 0,
+            qrNaturalHeight: qrImg?.naturalHeight || 0,
+            qrComplete: Boolean(qrImg?.complete),
+            copyBtnTextBefore,
+            copyBtnTextAfter,
+            lastCopiedText: window.__lastCopiedText || null,
+            storeFetchCountAfterCheckout: window.__storeFetchCount || 0
+          };
+        })()
+        """
+    )
+    s7 = os.path.join(SCREENSHOTS_DIR, "cuj03_receipt_with_qr.png")
+    cdp.screenshot(s7)
+
+    # Verify SQLite persistence via /usr/bin/sqlite3
+    db_file = os.path.join(ROOT_DIR, "db", "data.db")
+    order_row_out = subprocess.check_output(
+        [
+            "/usr/bin/sqlite3",
+            db_file,
+            "SELECT id, number, customerName, customerPhone, total, items FROM orders WHERE number = 101;",
+        ],
+        text=True,
+    ).strip()
+    next_num_out = subprocess.check_output(
+        [
+            "/usr/bin/sqlite3",
+            db_file,
+            "SELECT json_extract(data, '$.nextOrderNumber') FROM store_state;",
+        ],
+        text=True,
+    ).strip()
+
+    report["m2_cuj01_02_03"] = {
+        "zeroPollingProof": {
+            "fetchCountBefore3sWait": fetch_before_wait,
+            "fetchCountAfter3sWait": fetch_after_wait,
+            "zeroBackgroundPolls": fetch_before_wait == fetch_after_wait == 1,
+        },
+        "cuj01": cuj01_telemetry,
+        "cuj02_open": cuj02_open_telemetry,
+        "cuj02_selected": cuj02_selected_telemetry,
+        "cuj02_cart": cuj02_cart_telemetry,
+        "cuj03_sheet": cuj03_sheet_telemetry,
+        "cuj03_receipt": cuj03_receipt_telemetry,
+        "sqliteProof": {
+            "order101Row": order_row_out,
+            "nextOrderNumberAfter101": int(next_num_out),
+        },
+        "screenshots": [s1, s2, s3, s4, s5, s6, s7],
+    }
+
+
 def run_m1_smoke():
     os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
     subprocess.run(["/usr/bin/python3", os.path.join(ROOT_DIR, "scripts", "seed.py")], check=True)
@@ -205,7 +419,7 @@ def run_m1_smoke():
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    profile_dir = "/tmp/chrome-cuj-profile-m1"
+    profile_dir = "/tmp/chrome-cuj-profile-m1-m2"
     shutil.rmtree(profile_dir, ignore_errors=True)
     chrome_proc = None
     cdp = None
@@ -367,7 +581,6 @@ def run_m1_smoke():
                 customerPhone: '054-9876543',
                 items: [{ itemId: 'item-cappuccino', qty: 1, selectedTagIds: ['tag-oat'] }]
               });
-              // Attempt stale nextOrderNumber=101 save via PUT /api/store
               const afterStalePut = await stateMod.saveStoreState({
                 ...initialStore,
                 nextOrderNumber: 101
@@ -403,7 +616,6 @@ def run_m1_smoke():
               const chimeMod = await import('/src/utils/chime.js');
               const imgMod = await import('/src/utils/image.js');
 
-              // 1) QR Generator (240x240 ISO/IEC 18004 V2-L PNG) + Independent Canvas Pixel Decoder
               const qrDataUrl = qrMod.generateQrDataUrl('050-0000000');
               const qrImg = new Image();
               await new Promise((resolve, reject) => {
@@ -494,7 +706,6 @@ def run_m1_smoke():
               }
               const qrDecodedPayload = new TextDecoder().decode(decodedBytes);
 
-              // 2) WhatsApp Phone + Hebrew URL Builder
               const formattedPhone = waMod.formatWaPhone('054-9876543');
               const waUrl = waMod.buildHebrewWhatsAppUrl('054-9876543', {
                 customerName: 'דניאל',
@@ -507,12 +718,10 @@ def run_m1_smoke():
               });
               const decodedText = decodeURIComponent(waUrl.split('text=')[1] || '');
 
-              // 3) Gentle Chime Web Audio Synthesizer
               window.__chimeCount = 0;
               const chimePlayed = chimeMod.playGentleChime();
               const chimeCount = window.__chimeCount;
 
-              // 4) 1000x800 Source Image -> 400x400 Center-Crop JPEG Compressor
               const srcCanvas = document.createElement('canvas');
               srcCanvas.width = 1000;
               srcCanvas.height = 800;
@@ -537,7 +746,6 @@ def run_m1_smoke():
                 compImg.src = compressedJpegUrl;
               });
 
-              // Render a visual verification panel in the DOM for screenshot inspection
               const appEl = document.getElementById('app');
               appEl.innerHTML = `
                 <main class="admin-shell" dir="ltr" data-testid="m1-utilities-proof" style="padding: 24px;">
@@ -619,7 +827,10 @@ def run_m1_smoke():
         cdp.screenshot(p5)
         report["core_utilities_chrome"] = {"telemetry": utilities_telemetry, "screenshot": p5}
 
-        # Re-seed ./db/data.db to leave canonical state after smoke test
+        # 6. Execute Milestone 2 CUJ-01, CUJ-02, CUJ-03 end-to-end
+        run_m2_cujs(cdp, report)
+
+        # Re-seed ./db/data.db to leave canonical state after harness completes
         subprocess.run(["/usr/bin/python3", os.path.join(ROOT_DIR, "scripts", "seed.py")], check=True, stdout=subprocess.DEVNULL)
 
         print(json.dumps(report, ensure_ascii=False, indent=2))
