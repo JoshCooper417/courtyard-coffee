@@ -91,6 +91,7 @@ class TestMilestone1Routes(unittest.TestCase):
             "/api/order",
             {
                 "customerName": "יוסי",
+                "customerPhone": "054-9876543",
                 "items": [
                     {
                         "itemId": "item-cappuccino",
@@ -101,23 +102,34 @@ class TestMilestone1Routes(unittest.TestCase):
             },
         )
         self.assertEqual(status, 201)
+        self.assertEqual(created["number"], 101)
         self.assertEqual(created["orderNumber"], 101)
+        self.assertEqual(created["total"], 32)
         self.assertEqual(created["totalNis"], 32)
-        self.assertEqual(created["status"], "pending")
+        self.assertIs(created["isNotified"], False)
+        self.assertIs(created["isDone"], False)
 
         status_list, orders = self._request_json("GET", "/api/orders?status=pending")
         self.assertEqual(status_list, 200)
         self.assertEqual(len(orders), 1)
         self.assertEqual(orders[0]["id"], created["id"])
 
+        status_notify, notified = self._request_json(
+            "PATCH",
+            f"/api/orders/{created['id']}",
+            {"isNotified": True},
+        )
+        self.assertEqual(status_notify, 200)
+        self.assertIs(notified["isNotified"], True)
+
         status_patch, patched = self._request_json(
             "PATCH",
             f"/api/orders/{created['id']}",
-            {"status": "done"},
+            {"isDone": True, "status": "done"},
         )
         self.assertEqual(status_patch, 200)
+        self.assertIs(patched["isDone"], True)
         self.assertEqual(patched["status"], "done")
-        self.assertIsNotNone(patched.get("completedAt"))
 
         status_reset, reset_res = self._request_json("POST", "/api/orders/reset", {})
         self.assertEqual(status_reset, 200)
@@ -141,6 +153,7 @@ class TestMilestone1Routes(unittest.TestCase):
         customer_js = (ROOT_DIR / "src" / "routes" / "Customer.js").read_text(encoding="utf-8")
         self.assertIn('dir="rtl"', customer_js)
         self.assertIn("קפה בחצר", customer_js)
+        self.assertIn("+ הוסף", customer_js)
 
         pin_modal_js = (ROOT_DIR / "src" / "components" / "PinGateModal.js").read_text(encoding="utf-8")
         self.assertIn("adminPin", pin_modal_js)

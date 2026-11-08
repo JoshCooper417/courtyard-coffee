@@ -34,7 +34,7 @@ class TestMilestone1Utils(unittest.TestCase):
         photo_ids = {p.get("id") for p in photos}
         self.assertEqual(photo_ids, {"photo-cappuccino", "photo-croissant"})
         for photo in photos:
-            data_url = photo.get("dataUrl", "")
+            data_url = photo.get("url") or photo.get("dataUrl", "")
             self.assertTrue(data_url.startswith("data:image/png;base64,"))
             raw = base64.b64decode(data_url.split(",", 1)[1])
             self.assertEqual(raw[:8], b"\x89PNG\r\n\x1a\n")
@@ -45,18 +45,23 @@ class TestMilestone1Utils(unittest.TestCase):
         self.assertEqual(len(tags), 3)
         tags_by_id = {t["id"]: t for t in tags}
         self.assertTrue(tags_by_id["tag-oat"]["inStock"])
+        self.assertEqual(tags_by_id["tag-oat"]["price"], 2)
         self.assertTrue(tags_by_id["tag-decaf"]["inStock"])
+        self.assertEqual(tags_by_id["tag-decaf"]["price"], 0)
         self.assertFalse(tags_by_id["tag-syrup"]["inStock"])
+        self.assertEqual(tags_by_id["tag-syrup"]["price"], 3)
 
         items = store.get("menuItems", [])
         self.assertEqual(len(items), 2)
-        item_ids = {i["id"] for i in items}
-        self.assertEqual(item_ids, {"item-cappuccino", "item-croissant"})
+        items_by_id = {i["id"]: i for i in items}
+        self.assertEqual(items_by_id["item-cappuccino"]["price"], 14)
+        self.assertEqual(items_by_id["item-croissant"]["price"], 12)
 
     def test_monotonic_next_order_number_protection(self):
         order = create_order(
             {
                 "customerName": "דני",
+                "customerPhone": "054-9876543",
                 "items": [
                     {
                         "itemId": "item-cappuccino",
@@ -67,7 +72,9 @@ class TestMilestone1Utils(unittest.TestCase):
             },
             db_path=self.db_path,
         )
+        self.assertEqual(order.get("number"), 101)
         self.assertEqual(order.get("orderNumber"), 101)
+        self.assertEqual(order.get("total"), 16)
         self.assertEqual(order.get("totalNis"), 16)
 
         after_order_store = get_store_state(db_path=self.db_path)
@@ -88,14 +95,14 @@ class TestMilestone1Utils(unittest.TestCase):
         url = build_hebrew_whatsapp_url(
             "054-9876543",
             {
-                "orderNumber": 101,
+                "number": 101,
                 "customerName": "נועה",
-                "totalNis": 16,
+                "total": 16,
                 "items": [
                     {
-                        "titleHe": "קפוצ׳ינו",
+                        "nameHe": "קפוצ׳ינו",
                         "qty": 1,
-                        "selectedTags": ["חלב שיבולת שועל"],
+                        "tagsHe": ["חלב שיבולת שועל"],
                     }
                 ],
             },
