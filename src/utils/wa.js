@@ -15,7 +15,13 @@ export function formatWaPhone(rawPhone) {
   return digits;
 }
 
-export function buildHebrewWhatsAppUrl(rawPhone, order = {}) {
+export function buildHebrewWhatsAppUrl(rawPhoneOrOrder, maybeOrder = {}) {
+  const isFirstArgObject =
+    typeof rawPhoneOrOrder === "object" && rawPhoneOrOrder !== null;
+  const order = isFirstArgObject ? rawPhoneOrOrder : maybeOrder || {};
+  const rawPhone = isFirstArgObject
+    ? order.customerPhone || order.phone || ""
+    : rawPhoneOrOrder;
   const phone = formatWaPhone(rawPhone);
   const orderNumber = order.number ?? order.orderNumber ?? "";
   const customerName = order.customerName ?? "";

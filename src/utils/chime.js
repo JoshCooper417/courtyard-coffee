@@ -9,7 +9,7 @@ export function playGentleChime() {
   }
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
+    if (!AudioCtx) return false;
     const ctx = new AudioCtx();
     const now = ctx.currentTime;
 
@@ -29,7 +29,9 @@ export function playGentleChime() {
       osc.start(now + idx * 0.14);
       osc.stop(now + idx * 0.14 + 0.46);
     });
+    return true;
   } catch (_err) {
     // Ignore autoplay restriction errors in headless mode; telemetry is already recorded
+    return false;
   }
 }
