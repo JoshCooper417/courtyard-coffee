@@ -301,6 +301,19 @@ class TestMilestone1And2Utils(unittest.TestCase):
         customer_js = (ROOT_DIR / "src" / "routes" / "Customer.js").read_text(encoding="utf-8")
         self.assertNotIn("setInterval", customer_js)
 
+    def test_cuj06_closed_note_alias_and_quick86_persistence(self):
+        store = get_store_state(db_path=self.db_path)
+        store["isOpen"] = False
+        store["closedMessageHe"] = "יצאנו להפסקת צהריים, נחזור ב-14:00"
+        updated = save_store_state(store, db_path=self.db_path)
+        self.assertIs(updated["isOpen"], False)
+        self.assertEqual(updated["closedNoteHe"], "יצאנו להפסקת צהריים, נחזור ב-14:00")
+        self.assertEqual(updated.get("closedMessageHe"), "יצאנו להפסקת צהריים, נחזור ב-14:00")
+
+        kds_js = (ROOT_DIR / "src" / "routes" / "KDS.js").read_text(encoding="utf-8")
+        self.assertIn("__lastStoreSavePromise", kds_js)
+        self.assertIn("kds-status-badge", kds_js)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -226,6 +226,199 @@ class TestMilestone1And2Routes(unittest.TestCase):
         self.assertIn("הועתק! ✓", receipt_js)
         self.assertIn("__lastCopiedText", receipt_js)
 
+    def test_cuj04_pin_gate_modal_and_persistence_contract(self):
+        pin_modal_js = (ROOT_DIR / "src" / "components" / "PinGateModal.js").read_text(encoding="utf-8")
+        state_js = (ROOT_DIR / "src" / "state.js").read_text(encoding="utf-8")
+        main_js = (ROOT_DIR / "src" / "main.js").read_text(encoding="utf-8")
+        kds_js = (ROOT_DIR / "src" / "routes" / "KDS.js").read_text(encoding="utf-8")
+
+        self.assertIn('data-testid="pin-gate-modal"', pin_modal_js)
+        self.assertIn('data-testid="pin-input"', pin_modal_js)
+        self.assertIn('data-testid="pin-error"', pin_modal_js)
+        self.assertIn('data-testid="pin-submit"', pin_modal_js)
+        self.assertIn("has-error", pin_modal_js)
+        self.assertIn('localStorage.setItem("adminPin"', pin_modal_js)
+        self.assertIn('localStorage.getItem("adminPin")', state_js)
+        self.assertIn("isPinUnlocked", main_js)
+        self.assertIn('data-testid="kds-view"', kds_js)
+        self.assertIn('dir="ltr"', kds_js)
+
+    def test_cuj05_kds_polling_chime_and_two_tap_ticket_lifecycle(self):
+        status, created = self._request_json(
+            "POST",
+            "/api/order",
+            {
+                "customerName": "דניאל",
+                "customerPhone": "054-9876543",
+                "items": [
+                    {
+                        "itemId": "item-croissant",
+                        "qty": 2,
+                        "selectedTagIds": [],
+                        "note": "",
+                    },
+                    {
+                        "itemId": "item-cappuccino",
+                        "qty": 1,
+                        "selectedTagIds": ["tag-oat"],
+                        "note": "חם מאוד",
+                    },
+                ],
+            },
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(created["number"], 101)
+        self.assertEqual(created["total"], 40)
+        self.assertIs(created["isNotified"], False)
+        self.assertIs(created["isDone"], False)
+
+        status_pending, pending_orders = self._request_json("GET", "/api/orders?status=pending")
+        self.assertEqual(status_pending, 200)
+        self.assertEqual(len(pending_orders), 1)
+        t101 = pending_orders[0]
+        self.assertEqual(t101["number"], 101)
+        self.assertEqual(t101["items"][0]["nameEn"], "Butter Croissant")
+        self.assertEqual(t101["items"][0]["qty"], 2)
+        self.assertEqual(t101["items"][1]["nameEn"], "Cappuccino")
+        self.assertEqual(t101["items"][1]["tagsEn"], ["Oat Milk"])
+        self.assertEqual(t101["items"][1]["note"], "חם מאוד")
+
+        # Tap 1: Notify on WhatsApp -> sets isNotified=True, keeps isDone=False
+        status_tap1, after_tap1 = self._request_json(
+            "PATCH",
+            f"/api/orders/{t101['id']}",
+            {"isNotified": True},
+        )
+        self.assertEqual(status_tap1, 200)
+        self.assertIs(after_tap1["isNotified"], True)
+        self.assertIs(after_tap1["isDone"], False)
+
+        _, pending_after_tap1 = self._request_json("GET", "/api/orders?status=pending")
+        self.assertEqual(len(pending_after_tap1), 1)
+        self.assertIs(pending_after_tap1[0]["isNotified"], True)
+
+        # Tap 2: Done / Pick-up -> sets isDone=True, moves to done queue
+        status_tap2, after_tap2 = self._request_json(
+            "PATCH",
+            f"/api/orders/{t101['id']}",
+            {"isDone": True, "status": "done"},
+        )
+        self.assertEqual(status_tap2, 200)
+        self.assertIs(after_tap2["isNotified"], True)
+        self.assertIs(after_tap2["isDone"], True)
+        self.assertEqual(after_tap2["status"], "done")
+
+        _, pending_after_tap2 = self._request_json("GET", "/api/orders?status=pending")
+        self.assertEqual(len(pending_after_tap2), 0)
+        _, done_after_tap2 = self._request_json("GET", "/api/orders?status=done")
+        self.assertEqual(len(done_after_tap2), 1)
+        self.assertEqual(done_after_tap2[0]["number"], 101)
+
+        kds_js = (ROOT_DIR / "src" / "routes" / "KDS.js").read_text(encoding="utf-8")
+        self.assertIn("2000", kds_js)
+        self.assertIn("setInterval", kds_js)
+        self.assertIn("playGentleChime", kds_js)
+        self.assertIn("__resetKdsSeenOrders", kds_js)
+        self.assertIn("__lastWindowOpenUrl", kds_js)
+        self.assertIn("buildHebrewWhatsAppUrl", kds_js)
+        self.assertIn("kds-ticket-", kds_js)
+        self.assertIn("notify-wa-btn-", kds_js)
+        self.assertIn("done-order-btn-", kds_js)
+        self.assertIn("copy-wa-text-", kds_js)
+        self.assertIn("wa-preview-", kds_js)
+        self.assertIn("kds-completed-drawer-toggle", kds_js)
+        self.assertIn("kds-completed-drawer", kds_js)
+        self.assertIn("completed-ticket-", kds_js)
+        self.assertIn("kds-shift-reset-btn", kds_js)
+
+    def test_cuj06_kds_quick86_closed_note_and_store_closed_enforcement(self):
+        # First create Order #101 so nextOrderNumber advances to 102
+        self._request_json(
+            "POST",
+            "/api/order",
+            {
+                "customerName": "דניאל",
+                "customerPhone": "054-9876543",
+                "items": [{"itemId": "item-croissant", "qty": 1}],
+            },
+        )
+        _, store = self._request_json("GET", "/api/store")
+        self.assertEqual(store["nextOrderNumber"], 102)
+
+        # Quick-86 tag-oat and item-croissant, close store, and update closedNoteHe
+        for t in store["globalTags"]:
+            if t["id"] == "tag-oat":
+                t["inStock"] = False
+        for item in store["menuItems"]:
+            if item["id"] == "item-croissant":
+                item["inStock"] = False
+        store["isOpen"] = False
+        store["closedNoteHe"] = "יצאנו להפסקת צהריים, נחזור ב-14:00"
+
+        status_put, updated = self._request_json("PUT", "/api/store", store)
+        self.assertEqual(status_put, 200)
+        self.assertIs(updated["isOpen"], False)
+        self.assertEqual(updated["closedNoteHe"], "יצאנו להפסקת צהריים, נחזור ב-14:00")
+        self.assertEqual(updated["nextOrderNumber"], 102)
+
+        # Ordering while store is closed must fail with 400
+        status_closed_order, err_closed = self._request_json(
+            "POST",
+            "/api/order",
+            {
+                "customerName": "לקוח",
+                "customerPhone": "054-1112233",
+                "items": [{"itemId": "item-cappuccino", "qty": 1}],
+            },
+        )
+        self.assertEqual(status_closed_order, 400)
+        self.assertIn("closed", err_closed.get("error", "").lower())
+
+        # Re-open store while keeping item-croissant and tag-oat 86'd
+        updated["isOpen"] = True
+        self._request_json("PUT", "/api/store", updated)
+
+        # Ordering 86'd item-croissant must fail with 400
+        status_oos_item, err_oos = self._request_json(
+            "POST",
+            "/api/order",
+            {
+                "customerName": "לקוח",
+                "customerPhone": "054-1112233",
+                "items": [{"itemId": "item-croissant", "qty": 1}],
+            },
+        )
+        self.assertEqual(status_oos_item, 400)
+        self.assertIn("out of stock", err_oos.get("error", "").lower())
+
+        # Ordering item-cappuccino with 86'd tag-oat ignores the out-of-stock tag
+        status_cap, order_cap = self._request_json(
+            "POST",
+            "/api/order",
+            {
+                "customerName": "לקוח",
+                "customerPhone": "054-1112233",
+                "items": [
+                    {
+                        "itemId": "item-cappuccino",
+                        "qty": 1,
+                        "selectedTagIds": ["tag-oat", "tag-decaf"],
+                    }
+                ],
+            },
+        )
+        self.assertEqual(status_cap, 201)
+        self.assertEqual(order_cap["total"], 14)
+        self.assertEqual(order_cap["items"][0]["selectedTagIds"], ["tag-decaf"])
+
+        kds_js = (ROOT_DIR / "src" / "routes" / "KDS.js").read_text(encoding="utf-8")
+        self.assertIn('data-testid="kds-open-toggle"', kds_js)
+        self.assertIn('data-testid="kds-closed-note-input"', kds_js)
+        self.assertIn('data-testid="kds-quick86-strip"', kds_js)
+        self.assertIn("quick86-tag-", kds_js)
+        self.assertIn("quick86-item-", kds_js)
+        self.assertIn("saveStoreState", kds_js)
+
 
 if __name__ == "__main__":
     unittest.main()
