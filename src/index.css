@@ -524,62 +524,63 @@ button {
   background: var(--bg-card);
   border: 1px solid var(--border-warm);
   border-radius: var(--radius-card);
-  padding: 24px 20px;
+  padding: 16px 16px;
   box-shadow: var(--shadow-soft);
 }
 
 .receipt-badge-wrap {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .receipt-status-pill {
   display: inline-block;
   background: rgba(63, 98, 77, 0.14);
   color: var(--color-sage);
-  padding: 6px 14px;
+  padding: 4px 12px;
   border-radius: var(--radius-pill);
   font-weight: 700;
-  font-size: 0.9rem;
-  margin-bottom: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
 }
 
 .receipt-order-num {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 3rem;
+  font-size: 2.35rem;
   font-weight: 900;
   color: var(--text-espresso);
-  line-height: 1.1;
+  line-height: 1.05;
 }
 
 .receipt-customer-info {
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   color: var(--text-stone);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .receipt-payment-box {
   background: var(--bg-subtle);
   border: 1px solid var(--border-warm);
   border-radius: 14px;
-  padding: 18px 16px;
+  padding: 12px 14px;
   text-align: center;
 }
 
 .qr-frame {
   display: inline-flex;
-  padding: 8px;
+  padding: 6px;
   background: #FFFFFF;
   border: 1px solid var(--border-warm);
   border-radius: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+  text-decoration: none;
 }
 
 .receipt-qr-img {
   display: block;
-  width: 240px;
-  height: 240px;
+  width: 176px;
+  height: 176px;
   image-rendering: pixelated;
 }
 

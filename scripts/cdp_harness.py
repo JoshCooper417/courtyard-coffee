@@ -207,11 +207,39 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
     )
     cdp.set_viewport(390, 844, mobile=True)
     cdp.navigate_and_wait(f"http://127.0.0.1:{SERVER_PORT}/", '[data-testid="customer-storefront"]')
+    cdp.evaluate(
+        """
+        (() => {
+          window.__consoleErrors = [];
+          const origErr = console.error.bind(console);
+          console.error = (...args) => {
+            window.__consoleErrors.push(args.map(String).join(' '));
+            origErr(...args);
+          };
+          window.addEventListener('error', (e) => window.__consoleErrors.push(String(e.message || e)));
+        })()
+        """
+    )
 
     # Wait 3.1s on idle customer storefront to prove Zero Customer Polling
-    fetch_before_wait = cdp.evaluate("window.__storeFetchCount || 0")
+    pre_wait = cdp.evaluate(
+        """
+        ({
+          storeFetchCount: window.__storeFetchCount || 0,
+          resourceApiStoreCount: performance.getEntriesByType('resource').filter(r => r.name.includes('/api/store')).length
+        })
+        """
+    )
     time.sleep(3.1)
-    fetch_after_wait = cdp.evaluate("window.__storeFetchCount || 0")
+    post_wait = cdp.evaluate(
+        """
+        ({
+          storeFetchCount: window.__storeFetchCount || 0,
+          resourceApiStoreCount: performance.getEntriesByType('resource').filter(r => r.name.includes('/api/store')).length,
+          consoleErrorCount: (window.__consoleErrors || []).length
+        })
+        """
+    )
 
     s1 = os.path.join(SCREENSHOTS_DIR, "cuj01_initial_storefront.png")
     cdp.screenshot(s1)
@@ -295,13 +323,15 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
     # CUJ-02 Step C: Confirm customization -> Cart updates to 3 items / 40 NIS
     cuj02_cart_telemetry = cdp.evaluate(
         """
-        (() => {
+        (async () => {
           const confirmBtn = document.querySelector('[data-testid="confirm-customization-btn"]');
           confirmBtn.click();
+          const stateMod = await import('/src/state.js');
           return {
             sheetClosed: !document.querySelector('[data-testid="tag-bottom-sheet"]'),
             cartCountText: document.querySelector('[data-testid="cart-bar-count"]')?.textContent?.trim(),
-            cartTotalText: document.querySelector('[data-testid="cart-bar-total"]')?.textContent?.trim()
+            cartTotalText: document.querySelector('[data-testid="cart-bar-total"]')?.textContent?.trim(),
+            cartItemsSnapshot: stateMod.appState.cart
           };
         })()
         """
@@ -346,15 +376,19 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
           if (qrImg && !qrImg.complete) {
             await new Promise(r => { qrImg.onload = r; qrImg.onerror = r; });
           }
+          const qrLink = document.querySelector('[data-testid="receipt-qr-link"]');
           const copyBtn = document.querySelector('[data-testid="copy-phone-btn"]');
           const copyBtnTextBefore = copyBtn?.textContent?.trim();
           if (copyBtn) copyBtn.click();
           const copyBtnTextAfter = document.querySelector('[data-testid="copy-phone-btn"]')?.textContent?.trim();
+          const backBtn = document.querySelector('[data-testid="back-to-menu-btn"]');
+          const backBtnRect = backBtn?.getBoundingClientRect();
 
           return {
             receiptPresent: Boolean(document.querySelector('[data-testid="static-receipt"]')),
             orderNumberText: document.querySelector('[data-testid="receipt-order-number"]')?.textContent?.trim(),
             receiptTotalText: document.querySelector('[data-testid="receipt-total"]')?.textContent?.trim(),
+            qrLinkHref: qrLink?.getAttribute('href') || null,
             qrSrcPrefix: qrImg?.getAttribute('src')?.slice(0, 22) || '',
             qrNaturalWidth: qrImg?.naturalWidth || 0,
             qrNaturalHeight: qrImg?.naturalHeight || 0,
@@ -362,13 +396,29 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
             copyBtnTextBefore,
             copyBtnTextAfter,
             lastCopiedText: window.__lastCopiedText || null,
-            storeFetchCountAfterCheckout: window.__storeFetchCount || 0
+            backToMenuBottomPx: backBtnRect ? Math.round(backBtnRect.bottom) : null,
+            backToMenuVisibleInViewport: Boolean(backBtnRect && backBtnRect.bottom <= 844),
+            storeFetchCountAfterCheckout: window.__storeFetchCount || 0,
+            resourceApiStoreCountAfterCheckout: performance.getEntriesByType('resource').filter(r => r.name.includes('/api/store')).length,
+            consoleErrorCount: (window.__consoleErrors || []).length
           };
         })()
         """
     )
     s7 = os.path.join(SCREENSHOTS_DIR, "cuj03_receipt_with_qr.png")
     cdp.screenshot(s7)
+
+    # Click "חזרה לתפריט" after taking the receipt screenshot to prove navigation back to menu works
+    back_to_menu_ok = cdp.evaluate(
+        """
+        (() => {
+          const backBtn = document.querySelector('[data-testid="back-to-menu-btn"]');
+          if (backBtn) backBtn.click();
+          return Boolean(document.querySelector('[data-testid="customer-storefront"]') && !document.querySelector('[data-testid="static-receipt"]'));
+        })()
+        """
+    )
+    cuj03_receipt_telemetry["returnedToStorefront"] = back_to_menu_ok
 
     # Verify SQLite persistence via /usr/bin/sqlite3
     db_file = os.path.join(ROOT_DIR, "db", "data.db")
@@ -391,9 +441,16 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
 
     report["m2_cuj01_02_03"] = {
         "zeroPollingProof": {
-            "fetchCountBefore3sWait": fetch_before_wait,
-            "fetchCountAfter3sWait": fetch_after_wait,
-            "zeroBackgroundPolls": fetch_before_wait == fetch_after_wait == 1,
+            "fetchCountBefore3sWait": pre_wait["storeFetchCount"],
+            "fetchCountAfter3sWait": post_wait["storeFetchCount"],
+            "resourceApiStoreBefore3sWait": pre_wait["resourceApiStoreCount"],
+            "resourceApiStoreAfter3sWait": post_wait["resourceApiStoreCount"],
+            "consoleErrorCount": post_wait["consoleErrorCount"],
+            "zeroBackgroundPolls": (
+                pre_wait["storeFetchCount"] == post_wait["storeFetchCount"] == 1
+                and pre_wait["resourceApiStoreCount"] == post_wait["resourceApiStoreCount"] == 1
+                and post_wait["consoleErrorCount"] == 0
+            ),
         },
         "cuj01": cuj01_telemetry,
         "cuj02_open": cuj02_open_telemetry,
@@ -827,11 +884,12 @@ def run_m1_smoke():
         cdp.screenshot(p5)
         report["core_utilities_chrome"] = {"telemetry": utilities_telemetry, "screenshot": p5}
 
-        # 6. Execute Milestone 2 CUJ-01, CUJ-02, CUJ-03 end-to-end
+        # 6. Execute Milestone 2 CUJ-01, CUJ-02, CUJ-03 end-to-end (leaving Order #101 in ./db/data.db)
         run_m2_cujs(cdp, report)
 
-        # Re-seed ./db/data.db to leave canonical state after harness completes
-        subprocess.run(["/usr/bin/python3", os.path.join(ROOT_DIR, "scripts", "seed.py")], check=True, stdout=subprocess.DEVNULL)
+        report_path = os.path.join(SCREENSHOTS_DIR, "m2_cuj_report.json")
+        with open(report_path, "w", encoding="utf-8") as rf:
+            json.dump(report, rf, ensure_ascii=False, indent=2)
 
         print(json.dumps(report, ensure_ascii=False, indent=2))
     finally:

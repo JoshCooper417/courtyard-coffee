@@ -6,6 +6,9 @@ import { generateQrDataUrl } from "../utils/qr.js";
 
 export function mountStaticReceipt(container, order, store, onBackToMenu) {
   const bitPhone = store?.bitPhone || "050-0000000";
+  const bitUrl = bitPhone.startsWith("http")
+    ? bitPhone
+    : `https://www.bitpay.co.il/app/me/${encodeURIComponent(bitPhone.replace(/\D+/g, ""))}`;
   const qrDataUrl = generateQrDataUrl(bitPhone, 240);
   const orderNumber = order.number ?? order.orderNumber ?? 101;
   const totalNis = order.total ?? order.totalNis ?? 0;
@@ -57,10 +60,16 @@ export function mountStaticReceipt(container, order, store, onBackToMenu) {
 
           <div class="receipt-payment-box">
             <h2 class="sheet-section-title" style="text-align: center;">תשלום מהיר ב-Bit / PayBox</h2>
-            <p style="margin: 0 0 12px; font-size: 0.9rem; color: var(--text-stone); text-align: center;">
-              סרקו את הקוד או העתיקו את המספר לתשלום:
+            <p style="margin: 0 0 8px; font-size: 0.85rem; color: var(--text-stone); text-align: center;">
+              סרקו או לחצו על הקוד, או העתיקו את המספר לתשלום:
             </p>
-            <div class="qr-frame">
+            <a
+              href="${bitUrl}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="qr-frame"
+              data-testid="receipt-qr-link"
+            >
               <img
                 src="${qrDataUrl}"
                 alt="Bit QR Code"
@@ -69,7 +78,7 @@ export function mountStaticReceipt(container, order, store, onBackToMenu) {
                 class="receipt-qr-img"
                 data-testid="receipt-qr-img"
               />
-            </div>
+            </a>
             <div class="copy-phone-row">
               <span class="bit-phone-display" dir="ltr" data-testid="bit-phone-display">${bitPhone}</span>
               <button
