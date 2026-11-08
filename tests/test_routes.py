@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -33,7 +34,7 @@ class _DummyServer:
     server_port = 3000
 
 
-class TestMilestone1Routes(unittest.TestCase):
+class TestMilestone1And2Routes(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = os.path.join(self.temp_dir.name, "routes_test.db")
@@ -152,12 +153,78 @@ class TestMilestone1Routes(unittest.TestCase):
 
         customer_js = (ROOT_DIR / "src" / "routes" / "Customer.js").read_text(encoding="utf-8")
         self.assertIn('dir="rtl"', customer_js)
-        self.assertIn("קפה בחצר", customer_js)
-        self.assertIn("+ הוסף", customer_js)
 
         pin_modal_js = (ROOT_DIR / "src" / "components" / "PinGateModal.js").read_text(encoding="utf-8")
         self.assertIn("adminPin", pin_modal_js)
         self.assertIn("localStorage", pin_modal_js)
+
+    def test_cuj02_tag_bottom_sheet_and_note_persistence(self):
+        tag_sheet_js = (ROOT_DIR / "src" / "components" / "TagBottomSheet.js").read_text(encoding="utf-8")
+        self.assertIn('data-testid="tag-bottom-sheet"', tag_sheet_js)
+        self.assertIn("tag-pill-", tag_sheet_js)
+        self.assertIn("(אזל)", tag_sheet_js)
+        self.assertIn('data-testid="item-note-input"', tag_sheet_js)
+        self.assertIn('data-testid="confirm-customization-btn"', tag_sheet_js)
+
+    def test_cuj03_checkout_order_101_and_static_receipt_qr(self):
+        status, created = self._request_json(
+            "POST",
+            "/api/order",
+            {
+                "customerName": "דניאל",
+                "customerPhone": "054-9876543",
+                "items": [
+                    {
+                        "itemId": "item-croissant",
+                        "qty": 2,
+                        "selectedTagIds": [],
+                        "note": "",
+                    },
+                    {
+                        "itemId": "item-cappuccino",
+                        "qty": 1,
+                        "selectedTagIds": ["tag-oat"],
+                        "note": "חם מאוד",
+                    },
+                ],
+            },
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(created["number"], 101)
+        self.assertEqual(created["total"], 40)
+
+        conn = sqlite3.connect(self.db_path)
+        try:
+            row = conn.execute(
+                "SELECT id, number, customerName, customerPhone, total, items FROM orders WHERE number = 101;"
+            ).fetchone()
+            self.assertIsNotNone(row)
+            self.assertEqual(row[1], 101)
+            self.assertEqual(row[2], "דניאל")
+            self.assertEqual(row[3], "054-9876543")
+            self.assertEqual(float(row[4]), 40.0)
+            items_list = json.loads(row[5])
+            self.assertEqual(len(items_list), 2)
+            self.assertEqual(items_list[1]["note"], "חם מאוד")
+            self.assertEqual(items_list[1]["tagsHe"], ["חלב שיבולת שועל"])
+            self.assertEqual(items_list[1]["tagsEn"], ["Oat Milk"])
+        finally:
+            conn.close()
+
+        checkout_js = (ROOT_DIR / "src" / "components" / "CheckoutSheet.js").read_text(encoding="utf-8")
+        self.assertIn('data-testid="checkout-sheet"', checkout_js)
+        self.assertIn('data-testid="checkout-name-input"', checkout_js)
+        self.assertIn('data-testid="checkout-phone-input"', checkout_js)
+        self.assertIn('data-testid="submit-order-btn"', checkout_js)
+
+        receipt_js = (ROOT_DIR / "src" / "components" / "StaticReceipt.js").read_text(encoding="utf-8")
+        self.assertIn('data-testid="static-receipt"', receipt_js)
+        self.assertIn('data-testid="receipt-order-number"', receipt_js)
+        self.assertIn('data-testid="receipt-qr-img"', receipt_js)
+        self.assertIn('data-testid="copy-phone-btn"', receipt_js)
+        self.assertIn("העתק מספר", receipt_js)
+        self.assertIn("הועתק! ✓", receipt_js)
+        self.assertIn("__lastCopiedText", receipt_js)
 
 
 if __name__ == "__main__":

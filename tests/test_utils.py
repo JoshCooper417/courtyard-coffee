@@ -18,7 +18,6 @@ def _decode_png_and_verify_iso_qr(data_url: str) -> dict:
     assert raw[:8] == b"\x89PNG\r\n\x1a\n"
     width, height, bit_depth, color_type = struct.unpack(">IIBB", raw[16:26])
 
-    # Extract IDAT chunks
     pos = 8
     idat_parts = []
     while pos < len(raw):
@@ -107,7 +106,6 @@ def _decode_png_and_verify_iso_qr(data_url: str) -> dict:
             byte_val = (byte_val << 1) | b
         codewords.append(byte_val)
 
-    # Verify GF(2^8) Reed-Solomon syndromes for 10 ECC codewords
     gf_exp = [0] * 512
     gf_log = [0] * 256
     v = 1
@@ -133,7 +131,6 @@ def _decode_png_and_verify_iso_qr(data_url: str) -> dict:
             syn = gf_mul(syn, root) ^ cw
         syndromes.append(syn)
 
-    # Decode Byte Mode payload
     mode = (
         (unmasked_bits[0] << 3)
         | (unmasked_bits[1] << 2)
@@ -161,7 +158,7 @@ def _decode_png_and_verify_iso_qr(data_url: str) -> dict:
     }
 
 
-class TestMilestone1Utils(unittest.TestCase):
+class TestMilestone1And2Utils(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = os.path.join(self.temp_dir.name, "test_data.db")
@@ -229,7 +226,6 @@ class TestMilestone1Utils(unittest.TestCase):
         after_order_store = get_store_state(db_path=self.db_path)
         self.assertEqual(after_order_store.get("nextOrderNumber"), 102)
 
-        # Simulate stale admin client saving nextOrderNumber=101
         stale_payload = dict(after_order_store)
         stale_payload["nextOrderNumber"] = 101
         stale_payload["closedNoteHe"] = "נחזור ב-14:00"
@@ -287,6 +283,23 @@ class TestMilestone1Utils(unittest.TestCase):
         self.assertIn("IHDR", qr_js)
         self.assertIn("0x77c4", qr_js)
         self.assertIn("rsEncode10", qr_js)
+
+    def test_cuj01_cart_keying_and_inline_stepper_contract(self):
+        state_js = (ROOT_DIR / "src" / "state.js").read_text(encoding="utf-8")
+        self.assertIn("buildCartKey", state_js)
+        self.assertIn("__storeFetchCount", state_js)
+
+        card_js = (ROOT_DIR / "src" / "components" / "MenuItemCard.js").read_text(encoding="utf-8")
+        self.assertIn("stepper-dec-", card_js)
+        self.assertIn("stepper-qty-", card_js)
+        self.assertIn("stepper-inc-", card_js)
+
+        cart_bar_js = (ROOT_DIR / "src" / "components" / "StickyCartBar.js").read_text(encoding="utf-8")
+        self.assertIn('data-testid="sticky-cart-bar"', cart_bar_js)
+        self.assertIn("פריטים", cart_bar_js)
+
+        customer_js = (ROOT_DIR / "src" / "routes" / "Customer.js").read_text(encoding="utf-8")
+        self.assertNotIn("setInterval", customer_js)
 
 
 if __name__ == "__main__":
