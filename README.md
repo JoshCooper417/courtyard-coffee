@@ -111,3 +111,20 @@ Configure the following in **Vercel Dashboard → Project Settings → Environme
 | `DEFAULT_BIT_PHONE` | Initial Bit phone number for QR & copy button | `050-0000000` |
 | `REQUIRE_ADMIN_PIN` | Set to `1` to strictly require `X-Admin-Pin` on all admin writes | `1` |
 
+### 5.4 Pushing Updates to GitHub & Automatic Vercel Deployment
+Because `JoshCooper417/courtyard-coffee` is connected to Vercel (`https://courtyard-coffee.vercel.app/`), every push to `main` automatically deploys to production:
+
+```bash
+# 1. Run the 19-test unit & route suite locally before pushing
+/usr/bin/python3 -m unittest discover -s /Users/joshuacooper/Documents/code/courtyard-coffee/tests -t /Users/joshuacooper/Documents/code/courtyard-coffee -v
+
+# 2. Check status (note: .env.local and db/*.db* are gitignored so secrets/local DB are never committed)
+/usr/local/git/current/bin/git -C /Users/joshuacooper/Documents/code/courtyard-coffee status -s
+
+# 3. Stage, commit, and push to origin/main (triggers automatic Vercel production deploy)
+/usr/local/git/current/bin/git -C /Users/joshuacooper/Documents/code/courtyard-coffee add -A
+/usr/local/git/current/bin/git -C /Users/joshuacooper/Documents/code/courtyard-coffee commit -m "Describe your change"
+/usr/local/git/current/bin/git -C /Users/joshuacooper/Documents/code/courtyard-coffee push origin main
+```
+
+
