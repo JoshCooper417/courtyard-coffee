@@ -216,15 +216,15 @@ export function mountAdminMenuRoute(container, initialStore) {
           <table class="admin-spreadsheet-table admin-items-table">
             <thead>
               <tr>
-                <th style="width: 62px;">Stock</th>
-                <th style="width: 104px;">Category</th>
-                <th style="width: 150px;">Name (EN)</th>
-                <th style="width: 145px;">Name (HE)</th>
+                <th style="width: 48px;">Stock</th>
+                <th style="width: 90px;">Category</th>
+                <th style="width: 128px;">Name (EN)</th>
+                <th style="width: 118px;">Name (HE)</th>
                 <th>Description (HE)</th>
-                <th style="width: 86px;">Price (₪)</th>
-                <th style="width: 145px;">Photo</th>
-                <th style="width: 310px;">Attached Tags</th>
-                <th style="width: 68px;">Action</th>
+                <th style="width: 72px;">Price (₪)</th>
+                <th style="width: 176px;">Photo</th>
+                <th style="width: 292px;">Attached Tags</th>
+                <th style="width: 62px;">Action</th>
               </tr>
             </thead>
             <tbody id="admin-items-tbody"></tbody>

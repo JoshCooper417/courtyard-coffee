@@ -1076,7 +1076,58 @@ def run_m4_cuj07(cdp: CDPClient, report: dict):
         """
     )
 
-    # Step 2: Upload 1000x800 PNG via CDP DOM.setFileInputFiles on [data-testid="new-photo-file-input"]
+    # Step 2A: Upload a temporary photo ("Temp Photo") and delete it via [data-testid="delete-photo-photo-temp-photo"]
+    # to prove live Photo Album deletion & select-options cleanup before uploading "Iced Matcha Photo"
+    cdp.evaluate(
+        """
+        (() => {
+          const labelInput = document.querySelector('[data-testid="new-photo-label-input"]');
+          labelInput.value = 'Temp Photo';
+          labelInput.dispatchEvent(new Event('input', { bubbles: true }));
+        })()
+        """
+    )
+    doc_root = cdp.call("DOM.getDocument", {"depth": 1})["root"]["nodeId"]
+    file_input_node = cdp.call(
+        "DOM.querySelector",
+        {
+            "nodeId": doc_root,
+            "selector": '[data-testid="new-photo-file-input"]',
+        },
+    )["nodeId"]
+    cdp.call(
+        "DOM.setFileInputFiles",
+        {
+            "nodeId": file_input_node,
+            "files": [test_upload_path],
+        },
+    )
+    temp_photo_deleted = cdp.evaluate(
+        """
+        (async () => {
+          for (let i = 0; i < 50; i++) {
+            if (window.__lastPhotoUploadPromise) break;
+            await new Promise(r => setTimeout(r, 50));
+          }
+          const uploadedTemp = await window.__lastPhotoUploadPromise;
+          window.__lastPhotoUploadPromise = null;
+          const delBtn = document.querySelector(`[data-testid="delete-photo-${uploadedTemp.id}"]`);
+          if (delBtn) delBtn.click();
+          return !document.querySelector(`[data-testid="photo-card-${uploadedTemp.id}"]`);
+        })()
+        """
+    )
+
+    # Step 2B: Set label to "Iced Matcha Photo" and upload 1000x800 PNG via CDP DOM.setFileInputFiles
+    cdp.evaluate(
+        """
+        (() => {
+          const labelInput = document.querySelector('[data-testid="new-photo-label-input"]');
+          labelInput.value = 'Iced Matcha Photo';
+          labelInput.dispatchEvent(new Event('input', { bubbles: true }));
+        })()
+        """
+    )
     doc_root = cdp.call("DOM.getDocument", {"depth": 1})["root"]["nodeId"]
     file_input_node = cdp.call(
         "DOM.querySelector",
@@ -1119,6 +1170,7 @@ def run_m4_cuj07(cdp: CDPClient, report: dict):
         })()
         """
     )
+    photo_upload_telemetry["tempPhotoDeleted"] = bool(temp_photo_deleted)
 
     # Step 3: Add Global Tag ("Almond Milk" / "חלב שקדים", price: 2, inStock: true)
     # Step 4: Add Menu Item ("Iced Matcha" / "מאצ׳ה אייס", descHe: "מאצ׳ה יפנית על חלב קר", price: 18, category: "Coffee",
@@ -1133,7 +1185,28 @@ def run_m4_cuj07(cdp: CDPClient, report: dict):
             el.dispatchEvent(new Event('change', { bubbles: true }));
           };
 
-          // Add Global Tag
+          // Verify runtime Delete handlers for Photo, Global Tag (including cascade unlink), and Menu Item
+          document.querySelector('[data-testid="add-global-tag-btn"]').click();
+          let allTagRows = Array.from(document.querySelectorAll('#admin-tags-tbody tr'));
+          const tempTagId = allTagRows[allTagRows.length - 1].getAttribute('data-tag-id');
+          setInput(document.querySelector(`[data-testid="tag-name-en-${tempTagId}"]`), 'Temp Tag');
+
+          document.querySelector('[data-testid="add-menu-item-btn"]').click();
+          let allItemRows = Array.from(document.querySelectorAll('#admin-items-tbody tr'));
+          const tempItemId = allItemRows[allItemRows.length - 1].getAttribute('data-item-id');
+          // Attach tempTagId to item-cappuccino, then delete tempTagId and verify cascade removal
+          const capTempPill = document.querySelector(`[data-testid="item-tag-item-cappuccino-${tempTagId}"]`);
+          if (capTempPill) capTempPill.click();
+          document.querySelector(`[data-testid="delete-tag-${tempTagId}"]`).click();
+          const tempTagDeletedAndUnlinked = (
+            !document.querySelector(`[data-testid="tag-row-${tempTagId}"]`) &&
+            !document.querySelector(`[data-testid="item-tag-item-cappuccino-${tempTagId}"]`)
+          );
+
+          document.querySelector(`[data-testid="delete-item-${tempItemId}"]`).click();
+          const tempItemDeleted = !document.querySelector(`[data-testid="item-row-${tempItemId}"]`);
+
+          // Add Global Tag ("Almond Milk" / "חלב שקדים", +2 NIS)
           document.querySelector('[data-testid="add-global-tag-btn"]').click();
           const tagRows = Array.from(document.querySelectorAll('#admin-tags-tbody tr'));
           const newTagRow = tagRows[tagRows.length - 1];
@@ -1191,6 +1264,10 @@ def run_m4_cuj07(cdp: CDPClient, report: dict):
           return {
             newTagId,
             newItemId,
+            deleteProof: {
+              tempTagDeletedAndUnlinked,
+              tempItemDeleted
+            },
             statusBeforeSave,
             saveStatusAfter,
             byteSizeBadgeText,
@@ -1736,7 +1813,12 @@ def run_m1_smoke():
         # 8. Execute Milestone 4 CUJ-07 end-to-end (Admin Spreadsheet, 400x400 Photo Upload, Tag/Item CRUD & Customer Storefront)
         run_m4_cuj07(cdp, report)
 
-        for fname in ("m2_cuj_report.json", "m3_cuj_report.json", "m4_cuj_report.json"):
+        for fname in (
+            "m1_smoke_report.json",
+            "m2_cuj_report.json",
+            "m3_cuj_report.json",
+            "m4_cuj_report.json",
+        ):
             report_path = os.path.join(SCREENSHOTS_DIR, fname)
             with open(report_path, "w", encoding="utf-8") as rf:
                 json.dump(report, rf, ensure_ascii=False, indent=2)
