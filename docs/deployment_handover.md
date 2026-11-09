@@ -4,13 +4,15 @@ This handover bridges the completed **Milestones 1–4 implementation** (`CUJ-01
 
 ---
 
-## 1. Current Repository & Verification Baseline
+## 1. Current Repository, Production Deployment & Verification Baseline
 
+- **Live Production URL (Vercel + Turso Serverless SQLite)**: https://courtyard-coffee.vercel.app/
 - **GitHub Repository**: https://github.com/JoshCooper417/courtyard-coffee (`branch: main`)
 - **Local Workspace**: `/Users/joshuacooper/Documents/code/courtyard-coffee`
-- **All 4 Implementation Milestones Complete (`m1-red` .. `m4-green`)**:
-  - **Unit & Route Contract Suite**: `17 / 17` passing (`/usr/bin/python3 -m unittest discover -s tests -t . -v`)
+- **All 4 Implementation Milestones + Production Deployment Complete (`m1-red` .. `m4-green` + `main`)**:
+  - **Unit, Route & Contract Suite**: `19 / 19` passing (`/usr/bin/python3 -m unittest discover -s tests -t . -v`)
   - **Live Headless Chrome CDP Suite (`CUJ-01` – `CUJ-07`)**: `100%` passing (`/usr/bin/python3 scripts/cdp_harness.py`), with 23 screenshots and 4 JSON telemetry reports committed in [`screenshots/`](../screenshots/).
+  - **Post-Deploy Live Production Smoke Suite**: `100%` passing (`/usr/bin/python3 scripts/smoke_prod.py` against `https://courtyard-coffee.vercel.app`).
 - **Reference Documentation in Repo**:
   - [`README.md`](../README.md) — Architecture, API endpoints, and local quickstart
   - [`HANDOVER.md`](../HANDOVER.md) — Full M1–M4 engineering handover & audit matrix

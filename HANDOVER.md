@@ -139,11 +139,21 @@
 ## 3. Operational Playbook
 
 1. **Zero-Node Policy**: Never invoke `node`, `npm`, `npx`, or `brew` (blocked by macOS Santa). Use `/usr/bin/python3`, `/usr/bin/sqlite3`, `/usr/local/git/current/bin/git`, and `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`.
-2. **Run Unit & Route Test Suite (`BypassSandbox: false`)**:
+2. **Run Unit & Route Test Suite (19 Tests, `BypassSandbox: false`)**:
    ```bash
    /usr/bin/python3 -m unittest discover -s /Users/joshuacooper/Documents/code/courtyard-coffee/tests -t /Users/joshuacooper/Documents/code/courtyard-coffee -v
    ```
 3. **Run Full 7-CUJ Headless Chrome CDP Verification Suite (`BypassSandbox: true`)**:
    ```bash
    /usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/cdp_harness.py
+   ```
+4. **Run Post-Deploy Production Smoke Verification (`https://courtyard-coffee.vercel.app`)**:
+   ```bash
+   /usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/smoke_prod.py
+   ```
+5. **Push Updates to GitHub (`origin/main` → Auto-Deploys on Vercel)**:
+   ```bash
+   /usr/local/git/current/bin/git -C /Users/joshuacooper/Documents/code/courtyard-coffee add -A
+   /usr/local/git/current/bin/git -C /Users/joshuacooper/Documents/code/courtyard-coffee commit -m "Describe your change"
+   /usr/local/git/current/bin/git -C /Users/joshuacooper/Documents/code/courtyard-coffee push origin main
    ```
