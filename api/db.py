@@ -116,6 +116,8 @@ def build_initial_seed_state() -> dict:
                 "price": 14,
                 "inStock": True,
                 "photo": cap_url,
+                "imageUrl": cap_url,
+                "photoUrl": cap_url,
                 "photoId": "photo-cappuccino",
                 "tagIds": ["tag-oat", "tag-decaf", "tag-syrup"],
             },
@@ -130,6 +132,8 @@ def build_initial_seed_state() -> dict:
                 "price": 12,
                 "inStock": True,
                 "photo": cro_url,
+                "imageUrl": cro_url,
+                "photoUrl": cro_url,
                 "photoId": "photo-croissant",
                 "tagIds": [],
             },
@@ -267,6 +271,169 @@ def save_store_state(
         elif "closedMessageHe" in payload:
             merged["closedNoteHe"] = payload["closedMessageHe"]
             merged["closedMessageHe"] = payload["closedMessageHe"]
+
+        merged["isOpen"] = bool(merged.get("isOpen", True))
+
+        # Normalize photoAlbum entries (sync label/name and url/dataUrl)
+        raw_photos = merged.get("photoAlbum")
+        if isinstance(raw_photos, list):
+            normalized_photos = []
+            for idx, p in enumerate(raw_photos):
+                if not isinstance(p, dict):
+                    continue
+                pid = str(p.get("id") or f"photo-{idx + 1}").strip()
+                label = str(p.get("label") or p.get("name") or "Photo").strip()
+                url = str(p.get("url") or p.get("dataUrl") or "").strip()
+                p_norm = dict(p)
+                p_norm["id"] = pid
+                p_norm["label"] = label
+                p_norm["name"] = label
+                p_norm["url"] = url
+                p_norm["dataUrl"] = url
+                normalized_photos.append(p_norm)
+            merged["photoAlbum"] = normalized_photos
+
+        photos_by_id = {p["id"]: p for p in merged.get("photoAlbum", []) if isinstance(p, dict) and p.get("id")}
+        photos_by_url = {p["url"]: p for p in merged.get("photoAlbum", []) if isinstance(p, dict) and p.get("url")}
+        photos_by_label = {p["label"]: p for p in merged.get("photoAlbum", []) if isinstance(p, dict) and p.get("label")}
+
+        # Normalize globalTags entries (sync nameEn/labelEn, nameHe/labelHe, price/priceDelta, inStock)
+        old_tags_by_id = {
+            t["id"]: t for t in current.get("globalTags", []) if isinstance(t, dict) and t.get("id")
+        }
+        raw_tags = merged.get("globalTags")
+        if isinstance(raw_tags, list):
+            normalized_tags = []
+            for idx, t in enumerate(raw_tags):
+                if not isinstance(t, dict):
+                    continue
+                tid = str(t.get("id") or f"tag-{idx + 1}").strip()
+                old_t = old_tags_by_id.get(tid, {})
+
+                old_en = old_t.get("nameEn") or old_t.get("labelEn") or ""
+                if "nameEn" in t and t["nameEn"] != old_en:
+                    name_en = str(t["nameEn"])
+                elif "labelEn" in t and t["labelEn"] != old_en:
+                    name_en = str(t["labelEn"])
+                else:
+                    name_en = str(t.get("nameEn") or t.get("labelEn") or "")
+
+                old_he = old_t.get("nameHe") or old_t.get("labelHe") or ""
+                if "nameHe" in t and t["nameHe"] != old_he:
+                    name_he = str(t["nameHe"])
+                elif "labelHe" in t and t["labelHe"] != old_he:
+                    name_he = str(t["labelHe"])
+                else:
+                    name_he = str(t.get("nameHe") or t.get("labelHe") or "")
+
+                raw_price = t.get("price") if "price" in t else t.get("priceDelta", 0)
+                try:
+                    p_float = float(raw_price or 0)
+                except (TypeError, ValueError):
+                    p_float = 0.0
+                price_val = int(p_float) if p_float.is_integer() else p_float
+
+                t_norm = dict(t)
+                t_norm["id"] = tid
+                t_norm["nameEn"] = name_en
+                t_norm["labelEn"] = name_en
+                t_norm["nameHe"] = name_he
+                t_norm["labelHe"] = name_he
+                t_norm["price"] = price_val
+                t_norm["priceDelta"] = price_val
+                t_norm["inStock"] = bool(t.get("inStock", True))
+                normalized_tags.append(t_norm)
+            merged["globalTags"] = normalized_tags
+
+        # Normalize menuItems entries (sync nameEn/titleEn, nameHe/titleHe, photo/imageUrl/photoUrl/photoId)
+        old_items_by_id = {
+            i["id"]: i for i in current.get("menuItems", []) if isinstance(i, dict) and i.get("id")
+        }
+        raw_items = merged.get("menuItems")
+        if isinstance(raw_items, list):
+            normalized_items = []
+            for idx, item in enumerate(raw_items):
+                if not isinstance(item, dict):
+                    continue
+                iid = str(item.get("id") or f"item-{idx + 1}").strip()
+                old_i = old_items_by_id.get(iid, {})
+
+                old_en = old_i.get("nameEn") or old_i.get("titleEn") or ""
+                if "nameEn" in item and item["nameEn"] != old_en:
+                    name_en = str(item["nameEn"])
+                elif "titleEn" in item and item["titleEn"] != old_en:
+                    name_en = str(item["titleEn"])
+                else:
+                    name_en = str(item.get("nameEn") or item.get("titleEn") or "")
+
+                old_he = old_i.get("nameHe") or old_i.get("titleHe") or ""
+                if "nameHe" in item and item["nameHe"] != old_he:
+                    name_he = str(item["nameHe"])
+                elif "titleHe" in item and item["titleHe"] != old_he:
+                    name_he = str(item["titleHe"])
+                else:
+                    name_he = str(item.get("nameHe") or item.get("titleHe") or "")
+
+                try:
+                    p_float = float(item.get("price", 0) or 0)
+                except (TypeError, ValueError):
+                    p_float = 0.0
+                price_val = int(p_float) if p_float.is_integer() else p_float
+
+                raw_photo_id = str(item.get("photoId") or "").strip()
+                raw_photo = str(
+                    item.get("photo") or item.get("imageUrl") or item.get("photoUrl") or ""
+                ).strip()
+                old_photo = str(old_i.get("photo") or "").strip()
+
+                if raw_photo and raw_photo != old_photo and raw_photo in photos_by_url:
+                    matched_photo = photos_by_url[raw_photo]
+                    resolved_photo_id = matched_photo["id"]
+                    resolved_photo_url = matched_photo["url"]
+                elif raw_photo_id and raw_photo_id in photos_by_id:
+                    matched_photo = photos_by_id[raw_photo_id]
+                    resolved_photo_id = matched_photo["id"]
+                    resolved_photo_url = matched_photo["url"]
+                elif raw_photo and raw_photo in photos_by_url:
+                    matched_photo = photos_by_url[raw_photo]
+                    resolved_photo_id = matched_photo["id"]
+                    resolved_photo_url = matched_photo["url"]
+                elif raw_photo and raw_photo in photos_by_id:
+                    matched_photo = photos_by_id[raw_photo]
+                    resolved_photo_id = matched_photo["id"]
+                    resolved_photo_url = matched_photo["url"]
+                elif raw_photo_id and raw_photo_id in photos_by_label:
+                    matched_photo = photos_by_label[raw_photo_id]
+                    resolved_photo_id = matched_photo["id"]
+                    resolved_photo_url = matched_photo["url"]
+                elif raw_photo and raw_photo in photos_by_label:
+                    matched_photo = photos_by_label[raw_photo]
+                    resolved_photo_id = matched_photo["id"]
+                    resolved_photo_url = matched_photo["url"]
+                else:
+                    resolved_photo_id = raw_photo_id
+                    resolved_photo_url = raw_photo
+
+                raw_tag_ids = item.get("tagIds")
+                tag_ids = [str(tid) for tid in raw_tag_ids] if isinstance(raw_tag_ids, list) else []
+
+                i_norm = dict(item)
+                i_norm["id"] = iid
+                i_norm["category"] = str(item.get("category") or "Coffee")
+                i_norm["nameEn"] = name_en
+                i_norm["titleEn"] = name_en
+                i_norm["nameHe"] = name_he
+                i_norm["titleHe"] = name_he
+                i_norm["descHe"] = str(item.get("descHe") or "")
+                i_norm["price"] = price_val
+                i_norm["inStock"] = bool(item.get("inStock", True))
+                i_norm["photo"] = resolved_photo_url
+                i_norm["imageUrl"] = resolved_photo_url
+                i_norm["photoUrl"] = resolved_photo_url
+                i_norm["photoId"] = resolved_photo_id
+                i_norm["tagIds"] = tag_ids
+                normalized_items.append(i_norm)
+            merged["menuItems"] = normalized_items
 
         current_next = int(current.get("nextOrderNumber", 101))
         incoming_next = int(payload.get("nextOrderNumber", current_next))

@@ -1222,3 +1222,349 @@ button {
   font-size: 0.8rem;
   font-weight: 800;
 }
+
+/* Admin Menu & Spreadsheet Layout ("/admin/menu") */
+.admin-menu-shell {
+  padding: 12px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-menu-topbar {
+  padding: 10px 16px;
+  margin-bottom: 0;
+}
+
+.admin-menu-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-menu-main-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-espresso);
+}
+
+.admin-overview-counts {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-sage);
+  background: rgba(63, 98, 77, 0.12);
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+}
+
+.admin-menu-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-stone);
+}
+
+.admin-menu-topbar-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-save-status {
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+}
+
+.admin-save-status.saved {
+  background: rgba(63, 98, 77, 0.14);
+  color: var(--color-sage);
+}
+
+.admin-save-status.dirty,
+.admin-save-status.saving {
+  background: rgba(200, 109, 81, 0.16);
+  color: var(--color-terracotta);
+}
+
+.admin-save-status.error {
+  background: rgba(184, 74, 57, 0.16);
+  color: var(--color-danger);
+}
+
+.admin-save-btn {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  border-radius: 10px;
+}
+
+.admin-top-grid {
+  display: grid;
+  grid-template-columns: 1.45fr 1fr;
+  gap: 10px;
+}
+
+.admin-panel-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-warm);
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: var(--shadow-soft);
+}
+
+.admin-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.admin-panel-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-espresso);
+}
+
+.admin-open-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--color-sage);
+  cursor: pointer;
+}
+
+.admin-settings-fields {
+  display: grid;
+  grid-template-columns: 150px 120px 1fr;
+  gap: 8px;
+  align-items: end;
+}
+
+.admin-field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-stone);
+}
+
+.admin-input,
+.admin-select {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--border-warm);
+  border-radius: 7px;
+  background: var(--bg-courtyard);
+  color: var(--text-espresso);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.admin-input:focus,
+.admin-select:focus {
+  outline: none;
+  border-color: var(--color-sage);
+  background: #FFFFFF;
+}
+
+.admin-input-mono {
+  font-family: var(--font-mono);
+}
+
+.admin-input-rtl {
+  font-family: var(--font-he);
+  text-align: right;
+}
+
+.admin-input-num {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+.admin-byte-badge {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--color-sage);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-warm);
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+}
+
+.admin-json-details {
+  font-size: 0.8rem;
+}
+
+.admin-json-summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--text-stone);
+  user-select: none;
+}
+
+.admin-json-pre {
+  margin: 6px 0 0;
+  max-height: 110px;
+  overflow: auto;
+  padding: 8px;
+  background: var(--bg-courtyard);
+  border: 1px solid var(--border-warm);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-espresso);
+}
+
+/* Photo Album Manager */
+.admin-photo-upload-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-photo-label-new {
+  width: 240px;
+}
+
+.admin-upload-btn-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.admin-file-input-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.admin-photos-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-photo-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--bg-courtyard);
+  border: 1px solid var(--border-warm);
+  border-radius: 9px;
+}
+
+.admin-photo-thumb {
+  width: 46px;
+  height: 46px;
+  border-radius: 7px;
+  object-fit: cover;
+  border: 1px solid var(--border-warm);
+  flex-shrink: 0;
+}
+
+.admin-photo-card-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-photo-label-input {
+  width: 150px;
+}
+
+.admin-btn-xs {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+
+.admin-add-row-btn {
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  border-radius: 8px;
+}
+
+/* Spreadsheet Tables */
+.admin-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.admin-spreadsheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.admin-spreadsheet-table th {
+  text-align: left;
+  padding: 5px 6px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-stone);
+  border-bottom: 1.5px solid var(--border-warm);
+}
+
+.admin-spreadsheet-table td {
+  padding: 4px 5px;
+  border-bottom: 1px solid var(--border-warm);
+  vertical-align: middle;
+}
+
+.admin-spreadsheet-table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-td-center {
+  text-align: center;
+}
+
+.admin-item-tags-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.admin-item-tag-pill {
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-warm);
+  background: var(--bg-courtyard);
+  color: var(--text-stone);
+  font-size: 0.74rem;
+  font-weight: 700;
+  transition: all 0.12s ease;
+}
+
+.admin-item-tag-pill.selected {
+  background: var(--color-sage);
+  border-color: var(--color-sage);
+  color: #FFFFFF;
+}
+
+.admin-empty-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-stone);
+}
+
