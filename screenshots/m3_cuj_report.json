@@ -1,0 +1,421 @@
+{
+  "customer_rtl": {
+    "telemetry": {
+      "htmlDir": "rtl",
+      "mainDir": "rtl",
+      "title": "קפה בחצר",
+      "badge": "פתוח להזמנות",
+      "cards": [
+        {
+          "id": "item-cappuccino",
+          "title": "קפוצ׳ינו",
+          "price": "₪14",
+          "addBtnText": "+ הוסף",
+          "imgNaturalWidth": 400,
+          "imgNaturalHeight": 400,
+          "imgComplete": true
+        },
+        {
+          "id": "item-croissant",
+          "title": "קרואסון חמאה",
+          "price": "₪12",
+          "addBtnText": "+ הוסף",
+          "imgNaturalWidth": 400,
+          "imgNaturalHeight": 400,
+          "imgComplete": true
+        }
+      ],
+      "categoryFilterProof": {
+        "Coffee": [
+          "item-cappuccino"
+        ],
+        "Pastry": [
+          "item-croissant"
+        ],
+        "All": [
+          "item-cappuccino",
+          "item-croissant"
+        ]
+      }
+    },
+    "screenshot": "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/m1_smoke_customer_rtl.png"
+  },
+  "admin_pin_locked_red": {
+    "telemetry": {
+      "htmlDir": "ltr",
+      "pinModalPresent": true,
+      "kdsViewPresent": false,
+      "errorText": "Invalid PIN code. Please try again.",
+      "storedPin": null
+    },
+    "screenshot": "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/m1_smoke_admin_pin_locked.png"
+  },
+  "admin_kds_unlocked_green": {
+    "telemetry": {
+      "htmlDir": "ltr",
+      "pinModalPresent": false,
+      "kdsViewPresent": true,
+      "heading": "Courtyard Coffee — Barista KDS",
+      "queueText": "No Active Tickets in Queue\n            \n              Waiting for incoming orders (#101+). Polling every 2s with gentle audio chime.",
+      "storedPin": "1234"
+    },
+    "screenshot": "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/m1_smoke_kds_unlocked.png"
+  },
+  "admin_menu_ltr": {
+    "telemetry": {
+      "htmlDir": "ltr",
+      "mainDir": "ltr",
+      "heading": "Courtyard Coffee — Admin Menu & Settings",
+      "storedPin": "1234"
+    },
+    "screenshot": "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/m1_smoke_admin_menu.png"
+  },
+  "rest_api_live_http": {
+    "initialNextOrder": 101,
+    "createdOrderNumber": 101,
+    "createdOrderTotal": 16,
+    "monotonicNextOrderAfterStalePut": 102,
+    "pendingCountBeforeDone": 1,
+    "notifiedFlag": true,
+    "doneFlag": true,
+    "resetOk": true,
+    "finalNextOrderAfterReset": 101
+  },
+  "core_utilities_chrome": {
+    "telemetry": {
+      "qr": {
+        "prefix": "data:image/png;base64,iVBORw0KGg",
+        "complete": true,
+        "naturalWidth": 240,
+        "naturalHeight": 240,
+        "formatWordHex": "0x77C4",
+        "modeIndicator": 4,
+        "decodedPayload": "050-0000000"
+      },
+      "wa": {
+        "formattedPhone": "972549876543",
+        "waUrl": "https://wa.me/972549876543?text=%D7%A9%D7%9C%D7%95%D7%9D%20%D7%93%D7%A0%D7%99%D7%90%D7%9C!%20%D7%94%D7%94%D7%96%D7%9E%D7%A0%D7%94%20%D7%A9%D7%9C%D7%9A%20(%23101)%20%D7%9E-%D7%A7%D7%A4%D7%94%20%D7%91%D7%97%D7%A6%D7%A8%20%D7%9E%D7%95%D7%9B%D7%A0%D7%94%20%E2%98%95%0A%D7%A4%D7%99%D7%A8%D7%95%D7%98%20%D7%94%D7%96%D7%9E%D7%A0%D7%94%3A%0A%E2%80%A2%202x%20%D7%A7%D7%A8%D7%95%D7%90%D7%A1%D7%95%D7%9F%20%D7%97%D7%9E%D7%90%D7%94%0A%E2%80%A2%201x%20%D7%A7%D7%A4%D7%95%D7%A6%D7%B3%D7%99%D7%A0%D7%95%20(%D7%97%D7%9C%D7%91%20%D7%A9%D7%99%D7%91%D7%95%D7%9C%D7%AA%20%D7%A9%D7%95%D7%A2%D7%9C)%0A%D7%A1%D7%94%22%D7%9B%20%D7%9C%D7%AA%D7%A9%D7%9C%D7%95%D7%9D%3A%20%E2%82%AA40",
+        "decodedText": "שלום דניאל! ההזמנה שלך (#101) מ-קפה בחצר מוכנה ☕\nפירוט הזמנה:\n• 2x קרואסון חמאה\n• 1x קפוצ׳ינו (חלב שיבולת שועל)\nסה\"כ לתשלום: ₪40"
+      },
+      "chime": {
+        "chimePlayed": true,
+        "chimeCount": 1
+      },
+      "imageCompressor": {
+        "prefix": "data:image/jpeg;base64,",
+        "complete": true,
+        "naturalWidth": 400,
+        "naturalHeight": 400
+      }
+    },
+    "screenshot": "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/m1_smoke_core_utilities.png"
+  },
+  "m2_cuj01_02_03": {
+    "zeroPollingProof": {
+      "fetchCountBefore3sWait": 1,
+      "fetchCountAfter3sWait": 1,
+      "resourceApiStoreBefore3sWait": 1,
+      "resourceApiStoreAfter3sWait": 1,
+      "consoleErrorCount": 0,
+      "zeroBackgroundPolls": true
+    },
+    "cuj01": {
+      "sheetAfterFirstClick": false,
+      "qtyAfterFirstClick": "1",
+      "qtyAfterSecondClick": "2",
+      "cartCountText": "2 פריטים",
+      "cartTotalText": "24 ₪"
+    },
+    "cuj02_open": {
+      "sheetPresent": true,
+      "oatText": "חלב שיבולת שועל (+2 ₪)",
+      "oatDisabled": false,
+      "decafText": "נטול קפאין",
+      "decafDisabled": false,
+      "syrupText": "סירופ וניל (+3 ₪)\n                        (אזל)",
+      "syrupDisabled": true,
+      "confirmBtnInitialText": "הוסף להזמנה • 14 ₪"
+    },
+    "cuj02_selected": {
+      "oatSelected": true,
+      "noteValue": "חם מאוד",
+      "confirmBtnUpdatedText": "הוסף להזמנה • 16 ₪"
+    },
+    "cuj02_cart": {
+      "sheetClosed": true,
+      "cartCountText": "3 פריטים",
+      "cartTotalText": "40 ₪",
+      "cartItemsSnapshot": [
+        {
+          "key": "item-croissant::::",
+          "itemId": "item-croissant",
+          "nameHe": "קרואסון חמאה",
+          "nameEn": "Butter Croissant",
+          "qty": 2,
+          "unitPrice": 12,
+          "lineTotal": 24,
+          "selectedTagIds": [],
+          "tagsHe": [],
+          "tagsEn": [],
+          "note": ""
+        },
+        {
+          "key": "item-cappuccino::tag-oat::חם מאוד",
+          "itemId": "item-cappuccino",
+          "nameHe": "קפוצ׳ינו",
+          "nameEn": "Cappuccino",
+          "qty": 1,
+          "unitPrice": 16,
+          "lineTotal": 16,
+          "selectedTagIds": [
+            "tag-oat"
+          ],
+          "tagsHe": [
+            "חלב שיבולת שועל"
+          ],
+          "tagsEn": [
+            "Oat Milk"
+          ],
+          "note": "חם מאוד"
+        }
+      ]
+    },
+    "cuj03_sheet": {
+      "checkoutSheetOpen": true,
+      "summaryTotalText": "40 ₪",
+      "submitBtnText": "שלח הזמנה • 40 ₪"
+    },
+    "cuj03_receipt": {
+      "receiptPresent": true,
+      "orderNumberText": "#101",
+      "receiptTotalText": "40 ₪",
+      "qrLinkHref": "https://www.bitpay.co.il/app/me/0500000000",
+      "qrSrcPrefix": "data:image/png;base64,",
+      "qrNaturalWidth": 240,
+      "qrNaturalHeight": 240,
+      "qrComplete": true,
+      "copyBtnTextBefore": "העתק מספר",
+      "copyBtnTextAfter": "הועתק! ✓",
+      "lastCopiedText": "050-0000000",
+      "backToMenuBottomPx": 745,
+      "backToMenuVisibleInViewport": true,
+      "storeFetchCountAfterCheckout": 2,
+      "resourceApiStoreCountAfterCheckout": 2,
+      "consoleErrorCount": 0,
+      "returnedToStorefront": true
+    },
+    "sqliteProof": {
+      "order101Row": "ord-101-afe5c6|101|דניאל|054-9876543|40.0|[{\"itemId\": \"item-croissant\", \"nameHe\": \"קרואסון חמאה\", \"titleHe\": \"קרואסון חמאה\", \"nameEn\": \"Butter Croissant\", \"titleEn\": \"Butter Croissant\", \"qty\": 2, \"unitPrice\": 12, \"lineTotal\": 24, \"tagsHe\": [], \"tagsEn\": [], \"selectedTagIds\": [], \"selectedTags\": [], \"note\": \"\"}, {\"itemId\": \"item-cappuccino\", \"nameHe\": \"קפוצ׳ינו\", \"titleHe\": \"קפוצ׳ינו\", \"nameEn\": \"Cappuccino\", \"titleEn\": \"Cappuccino\", \"qty\": 1, \"unitPrice\": 16, \"lineTotal\": 16, \"tagsHe\": [\"חלב שיבולת שועל\"], \"tagsEn\": [\"Oat Milk\"], \"selectedTagIds\": [\"tag-oat\"], \"selectedTags\": [{\"id\": \"tag-oat\", \"nameHe\": \"חלב שיבולת שועל\", \"labelHe\": \"חלב שיבולת שועל\", \"nameEn\": \"Oat Milk\", \"labelEn\": \"Oat Milk\", \"price\": 2, \"priceDelta\": 2}], \"note\": \"חם מאוד\"}]",
+      "nextOrderNumberAfter101": 102
+    },
+    "screenshots": [
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj01_initial_storefront.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj01_pastry_added.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj02_bottom_sheet_open.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj02_bottom_sheet_selected.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj02_cart_updated.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj03_checkout_sheet_filled.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj03_receipt_with_qr.png"
+    ]
+  },
+  "m3_cuj04_05_06": {
+    "cuj04": {
+      "locked": {
+        "htmlDir": "ltr",
+        "pinModalPresent": true,
+        "kdsViewPresent": false,
+        "errorPresent": false,
+        "storedPin": null
+      },
+      "error": {
+        "pinModalPresent": true,
+        "kdsViewPresent": false,
+        "hasErrorClass": true,
+        "errorText": "Invalid PIN code. Please try again.",
+        "storedPin": null
+      },
+      "unlocked": {
+        "htmlDir": "ltr",
+        "pinModalPresent": false,
+        "kdsViewPresent": true,
+        "emptyQueueStatePresent": true,
+        "storedPin": "1234",
+        "chimeCountWhenEmpty": 0
+      },
+      "reloadedKdsBypass": {
+        "pinModalPresent": false,
+        "kdsViewPresent": true,
+        "storedPin": "1234"
+      },
+      "adminMenuBypass": {
+        "pinModalPresent": false,
+        "adminMenuViewPresent": true,
+        "storedPin": "1234"
+      }
+    },
+    "cuj05": {
+      "activeTicket": {
+        "chimeCountAfter2sPoll": 1,
+        "chimeSynthSuccessCount": 1,
+        "ticketPresent": true,
+        "ticketNumberText": "#101",
+        "ticketStatusText": "New Ticket",
+        "ticketTotalText": "₪40",
+        "itemTitles": [
+          "2x Butter Croissant",
+          "1x Cappuccino"
+        ],
+        "tagPills": [
+          "Oat Milk"
+        ],
+        "noteText": "Note: \"חם מאוד\"",
+        "waPreviewDir": "rtl",
+        "waPreviewText": "שלום דניאל! ההזמנה שלך (#101) מ-קפה בחצר מוכנה ☕\nפירוט הזמנה:\n• 2x קרואסון חמאה\n• 1x קפוצ׳ינו (חלב שיבולת שועל)\nסה\"כ לתשלום: ₪40",
+        "copyBtnTextBefore": "Copy Text",
+        "copyBtnTextAfter": "Copied! ✓",
+        "lastCopiedWaText": "שלום דניאל! ההזמנה שלך (#101) מ-קפה בחצר מוכנה ☕\nפירוט הזמנה:\n• 2x קרואסון חמאה\n• 1x קפוצ׳ינו (חלב שיבולת שועל)\nסה\"כ לתשלום: ₪40",
+        "notifyBtnPresent": true,
+        "notifyBtnText": "Notify on WhatsApp",
+        "doneBtnPresent": false,
+        "ticketBottomPx": 624,
+        "notifyBtnBottomPx": 608,
+        "drawerToggleBottomPx": 675,
+        "ticketFullyVisibleIn800pxViewport": true,
+        "liveSubmittedOrderNumber": 101
+      },
+      "notifiedTicket": {
+        "ticketNotifiedClass": true,
+        "ticketStatusText": "✓ WhatsApp Sent",
+        "notifyBtnPresent": false,
+        "doneBtnPresent": true,
+        "doneBtnText": "Done / Pick-up",
+        "lastWindowOpenUrl": "https://wa.me/972549876543?text=%D7%A9%D7%9C%D7%95%D7%9D%20%D7%93%D7%A0%D7%99%D7%90%D7%9C!%20%D7%94%D7%94%D7%96%D7%9E%D7%A0%D7%94%20%D7%A9%D7%9C%D7%9A%20(%23101)%20%D7%9E-%D7%A7%D7%A4%D7%94%20%D7%91%D7%97%D7%A6%D7%A8%20%D7%9E%D7%95%D7%9B%D7%A0%D7%94%20%E2%98%95%0A%D7%A4%D7%99%D7%A8%D7%95%D7%98%20%D7%94%D7%96%D7%9E%D7%A0%D7%94%3A%0A%E2%80%A2%202x%20%D7%A7%D7%A8%D7%95%D7%90%D7%A1%D7%95%D7%9F%20%D7%97%D7%9E%D7%90%D7%94%0A%E2%80%A2%201x%20%D7%A7%D7%A4%D7%95%D7%A6%D7%B3%D7%99%D7%A0%D7%95%20(%D7%97%D7%9C%D7%91%20%D7%A9%D7%99%D7%91%D7%95%D7%9C%D7%AA%20%D7%A9%D7%95%D7%A2%D7%9C)%0A%D7%A1%D7%94%22%D7%9B%20%D7%9C%D7%AA%D7%A9%D7%9C%D7%95%D7%9D%3A%20%E2%82%AA40"
+      },
+      "sqliteAfterTap1": "1|0",
+      "completedDrawer": {
+        "activeTicket101Present": false,
+        "emptyQueueCardPresent": true,
+        "drawerToggleText": "Completed Orders (1)\n          ▲ Hide",
+        "drawerPresent": true,
+        "completedTicket101Present": true,
+        "completedTicketText": "#101 דניאל (054-9876543) 2x Butter Croissant • 1x Cappuccino (Oat Milk) ₪40 Picked Up ✓"
+      },
+      "sqliteAfterTap2": "1|1"
+    },
+    "cuj06": {
+      "kds86AndClosed": {
+        "statusBadgeText": "CLOSED",
+        "openToggleBtnText": "Open Store",
+        "closedNoteInputValue": "יצאנו להפסקת צהריים, נחזור ב-14:00",
+        "closedNotePutRequestCount": 1,
+        "oatOutOfStockClass": true,
+        "oatText": "Oat Milk 86'd",
+        "croissantOutOfStockClass": true,
+        "croissantText": "Butter Croissant 86'd"
+      },
+      "sqliteStoreState": "0|יצאנו להפסקת צהריים, נחזור ב-14:00|102",
+      "customerClosedAnd86": {
+        "htmlDir": "rtl",
+        "statusBadgeText": "סגור כעת",
+        "closedBannerText": "יצאנו להפסקת צהריים, נחזור ב-14:00",
+        "croissantCardDisabled": true,
+        "croissantBtnDisabled": true,
+        "croissantBtnText": "אזל מהמלאי",
+        "tagSheetOpen": true,
+        "oatTagDisabled": true,
+        "oatTagText": "חלב שיבולת שועל (+2 ₪) (אזל)",
+        "decafTagDisabled": false,
+        "syrupTagDisabled": true,
+        "syrupTagText": "סירופ וניל (+3 ₪) (אזל)",
+        "confirmBtnDisabled": true,
+        "confirmBtnText": "החנות סגורה כעת",
+        "layoutBoxes": {
+          "closedBannerBottomPx": 129,
+          "croissantCardBottomPx": 423,
+          "sheetCardTopPx": 512,
+          "closedBannerAndCroissantVisibleAboveSheet": true
+        }
+      }
+    },
+    "screenshots": [
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj04_pin_modal_locked.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj04_pin_modal_error.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj04_kds_unlocked.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj05_kds_active_ticket.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj05_kds_ticket_notified.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj05_kds_completed_drawer.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj06_kds_86_and_closed.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj06_customer_closed_and_86.png"
+    ]
+  },
+  "m4_cuj07": {
+    "uploadFile": {
+      "path": "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/test_upload_1000x800.png",
+      "byteSize": 13273,
+      "width": 1000,
+      "height": 800
+    },
+    "initialAdminState": {
+      "htmlDir": "ltr",
+      "mainDir": "ltr",
+      "storedPin": "1234",
+      "initialByteSizeText": "55,409 bytes (54.1 KB)",
+      "initialOverviewText": "Items: 2 • Tags: 3 • Photos: 2",
+      "initialIsOpenChecked": false
+    },
+    "photoCompressionProof": {
+      "photoId": "photo-iced-matcha-photo",
+      "label": "Iced Matcha Photo",
+      "dataUrlPrefix": "data:image/jpeg;base64,",
+      "dataUrlLength": 11947,
+      "thumbPresentInDom": true,
+      "thumbComplete": true,
+      "thumbNaturalWidth": 400,
+      "thumbNaturalHeight": 400,
+      "tempPhotoDeleted": true
+    },
+    "adminSpreadsheetCrud": {
+      "newTagId": "tag-custom-4",
+      "newItemId": "item-custom-3",
+      "deleteProof": {
+        "tempTagDeletedAndUnlinked": true,
+        "tempItemDeleted": true
+      },
+      "statusBeforeSave": "Unsaved changes",
+      "saveStatusAfter": "Saved ✓",
+      "byteSizeBadgeText": "115,749 bytes (113.0 KB)",
+      "exactBlobBytes": 115749,
+      "byteBadgeMatchesBlobSize": true,
+      "overviewCountsText": "Items: 3 • Tags: 4 • Photos: 3",
+      "adminViewBottomPx": 715,
+      "fitsIn800pxViewport": true
+    },
+    "sqliteStoreStateAfterSave": "1|102|3|4|3|Almond Milk|חלב שקדים|2|Iced Matcha|מאצ׳ה אייס|18|data:image/jpeg;base64,",
+    "customerNewItemAndTagSheet": {
+      "htmlDir": "rtl",
+      "statusBadgeText": "פתוח להזמנות",
+      "matchaItemId": "item-custom-3",
+      "matchaTitleText": "מאצ׳ה אייס",
+      "matchaDescText": "מאצ׳ה יפנית על חלב קר",
+      "matchaPriceText": "₪18",
+      "matchaImgSrcPrefix": "data:image/jpeg;base64,",
+      "matchaImgComplete": true,
+      "matchaImgNaturalWidth": 400,
+      "matchaImgNaturalHeight": 400,
+      "tagSheetOpen": true,
+      "almondPillText": "חלב שקדים (+2 ₪)",
+      "almondPillSelected": true,
+      "confirmBtnTextBeforeSelect": "הוסף להזמנה • 18 ₪",
+      "confirmBtnTextAfterSelect": "הוסף להזמנה • 20 ₪",
+      "layoutBoxes": {
+        "matchaCardBottomPx": 504,
+        "sheetCardTopPx": 555,
+        "matchaCardVisibleAboveSheet": true
+      }
+    },
+    "screenshots": [
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj07_admin_spreadsheet.png",
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj07_customer_new_item.png"
+    ]
+  }
+}
