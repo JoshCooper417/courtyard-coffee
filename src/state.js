@@ -106,10 +106,20 @@ export async function fetchStoreState() {
   return data;
 }
 
+export function getAdminHeaders() {
+  const headers = { "Content-Type": "application/json" };
+  const savedPin =
+    typeof localStorage !== "undefined" ? localStorage.getItem("adminPin") : null;
+  if (savedPin) {
+    headers["X-Admin-Pin"] = String(savedPin);
+  }
+  return headers;
+}
+
 export async function saveStoreState(nextStore) {
   const resp = await fetch("/api/store", {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: getAdminHeaders(),
     body: JSON.stringify(nextStore),
   });
   if (!resp.ok) {
@@ -118,6 +128,13 @@ export async function saveStoreState(nextStore) {
   }
   const updated = await resp.json();
   appState.store = updated;
+  if (
+    typeof localStorage !== "undefined" &&
+    localStorage.getItem("adminPin") &&
+    updated?.adminPin
+  ) {
+    localStorage.setItem("adminPin", String(updated.adminPin));
+  }
   return updated;
 }
 
@@ -150,7 +167,7 @@ export async function patchOrderStatus(orderId, patchOrStatus) {
       : { status: patchOrStatus };
   const resp = await fetch(`/api/orders/${encodeURIComponent(orderId)}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: getAdminHeaders(),
     body: JSON.stringify(bodyObj),
   });
   if (!resp.ok) {
@@ -162,7 +179,7 @@ export async function patchOrderStatus(orderId, patchOrStatus) {
 export async function resetAllOrders() {
   const resp = await fetch("/api/orders/reset", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getAdminHeaders(),
     body: JSON.stringify({}),
   });
   if (!resp.ok) {

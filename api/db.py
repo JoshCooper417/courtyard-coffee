@@ -1,24 +1,38 @@
-"""SQLite repository and deterministic seed state for Courtyard Coffee."""
+"""SQLite repository and Turso HTTP pipeline adapter for Courtyard Coffee."""
 from __future__ import annotations
 
 import json
 import os
 import sqlite3
+import sys
+import urllib.error
+import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 from api.utils import generate_art_png_data_url
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
+_TURSO_INITIALIZED_URLS: set[str] = set()
 
 
 def _load_env_defaults() -> dict[str, str]:
     env_file = ROOT_DIR / ".env.local"
+    default_db_path = (
+        "/tmp/courtyard_coffee.db"
+        if os.environ.get("VERCEL")
+        else str(ROOT_DIR / "db" / "data.db")
+    )
     defaults = {
-        "DB_PATH": str(ROOT_DIR / "db" / "data.db"),
+        "DB_PATH": default_db_path,
         "DEFAULT_ADMIN_PIN": "1234",
         "DEFAULT_BIT_PHONE": "050-0000000",
+        "TURSO_DATABASE_URL": "",
+        "TURSO_AUTH_TOKEN": "",
     }
     if env_file.exists():
         for raw_line in env_file.read_text(encoding="utf-8").splitlines():
@@ -27,11 +41,32 @@ def _load_env_defaults() -> dict[str, str]:
                 continue
             k, v = line.split("=", 1)
             k, v = k.strip(), v.strip()
-            if k == "DB_PATH" and not os.path.isabs(v):
+            if k == "DB_PATH" and not os.path.isabs(v) and not v.startswith(("libsql://", "https://", "http://")):
                 defaults[k] = str((ROOT_DIR / v).resolve())
             else:
                 defaults[k] = v
+
+    for env_key in ("DEFAULT_ADMIN_PIN", "DEFAULT_BIT_PHONE", "TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN"):
+        env_val = os.environ.get(env_key)
+        if env_val is not None and env_val.strip() != "":
+            defaults[env_key] = env_val.strip()
+
     return defaults
+
+
+def is_turso_url(path_or_url: str | None) -> bool:
+    if not path_or_url:
+        return False
+    return str(path_or_url).strip().startswith(("libsql://", "https://", "http://"))
+
+
+def normalize_turso_pipeline_url(raw_url: str) -> str:
+    url = str(raw_url).strip().rstrip("/")
+    if url.startswith("libsql://"):
+        url = "https://" + url[len("libsql://") :]
+    if not url.endswith("/v2/pipeline"):
+        url = url + "/v2/pipeline"
+    return url
 
 
 def get_db_path(custom_path: str | None = None) -> str:
@@ -39,10 +74,141 @@ def get_db_path(custom_path: str | None = None) -> str:
         return custom_path
     env_override = os.environ.get("DB_PATH")
     if env_override:
-        if not os.path.isabs(env_override):
+        if not os.path.isabs(env_override) and not is_turso_url(env_override):
             return str((ROOT_DIR / env_override).resolve())
         return env_override
-    return _load_env_defaults()["DB_PATH"]
+    defaults = _load_env_defaults()
+    if defaults.get("TURSO_DATABASE_URL"):
+        return defaults["TURSO_DATABASE_URL"]
+    return defaults["DB_PATH"]
+
+
+class _DictRow:
+    """Row wrapper matching sqlite3.Row (supports both key lookup and integer index)."""
+
+    def __init__(self, col_names: list[str], values: list[object]) -> None:
+        self._cols = col_names
+        self._vals = values
+        self._map = dict(zip(col_names, values))
+
+    def __getitem__(self, key: str | int) -> object:
+        if isinstance(key, int):
+            return self._vals[key]
+        return self._map[key]
+
+    def get(self, key: str, default: object = None) -> object:
+        return self._map.get(key, default)
+
+    def keys(self) -> list[str]:
+        return list(self._cols)
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._map
+
+    def __iter__(self):
+        return iter(self._vals)
+
+
+class _TursoCursor:
+    def __init__(self, rows: list[_DictRow]) -> None:
+        self._rows = rows
+
+    def fetchone(self) -> _DictRow | None:
+        return self._rows[0] if self._rows else None
+
+    def fetchall(self) -> list[_DictRow]:
+        return list(self._rows)
+
+
+def _encode_turso_arg(val: object) -> dict:
+    if val is None:
+        return {"type": "null"}
+    if isinstance(val, bool):
+        return {"type": "integer", "value": "1" if val else "0"}
+    if isinstance(val, int):
+        return {"type": "integer", "value": str(val)}
+    if isinstance(val, float):
+        return {"type": "float", "value": float(val)}
+    return {"type": "text", "value": str(val)}
+
+
+def _decode_turso_cell(cell: dict) -> object:
+    ctype = cell.get("type")
+    if ctype == "null" or ctype is None:
+        return None
+    if ctype == "integer":
+        return int(cell["value"])
+    if ctype == "float":
+        return float(cell["value"])
+    if ctype == "text":
+        return str(cell.get("value", ""))
+    return cell.get("value")
+
+
+class _TursoConnection:
+    """Zero-dependency Turso HTTP v2 pipeline client compatible with sqlite3.Connection usage."""
+
+    def __init__(self, raw_url: str, auth_token: str = "") -> None:
+        self.pipeline_url = normalize_turso_pipeline_url(raw_url)
+        self.auth_token = auth_token.strip()
+
+    def execute(self, sql: str, params: tuple | list = ()) -> _TursoCursor:
+        stmt_clean = sql.strip()
+        upper = stmt_clean.upper()
+        if (
+            upper.startswith("BEGIN")
+            or upper.startswith("COMMIT")
+            or upper.startswith("ROLLBACK")
+            or upper.startswith("PRAGMA JOURNAL_MODE")
+            or upper.startswith("PRAGMA BUSY_TIMEOUT")
+        ):
+            return _TursoCursor([])
+
+        stmt_obj: dict[str, object] = {"sql": stmt_clean}
+        if params:
+            stmt_obj["args"] = [_encode_turso_arg(p) for p in params]
+
+        payload = {
+            "requests": [
+                {"type": "execute", "stmt": stmt_obj},
+                {"type": "close"},
+            ]
+        }
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if self.auth_token:
+            headers["Authorization"] = f"Bearer {self.auth_token}"
+
+        req = urllib.request.Request(self.pipeline_url, data=body, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=10.0) as resp:
+                resp_data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            err_body = exc.read().decode("utf-8", errors="replace")
+            raise sqlite3.OperationalError(f"Turso HTTP {exc.code}: {err_body}") from exc
+        except urllib.error.URLError as exc:
+            raise sqlite3.OperationalError(f"Turso connection error: {exc}") from exc
+
+        results = resp_data.get("results") or []
+        if not results:
+            return _TursoCursor([])
+
+        first = results[0]
+        if first.get("type") == "error":
+            err_msg = (first.get("error") or {}).get("message") or "Unknown Turso SQL error"
+            raise sqlite3.OperationalError(err_msg)
+
+        exec_result = (first.get("response") or {}).get("result") or {}
+        cols = [c.get("name", f"col_{i}") for i, c in enumerate(exec_result.get("cols") or [])]
+        raw_rows = exec_result.get("rows") or []
+        dict_rows = [
+            _DictRow(cols, [_decode_turso_cell(cell) for cell in r])
+            for r in raw_rows
+        ]
+        return _TursoCursor(dict_rows)
+
+    def close(self) -> None:
+        pass
 
 
 def build_initial_seed_state() -> dict:
@@ -141,8 +307,12 @@ def build_initial_seed_state() -> dict:
     }
 
 
-def _connect(db_path: str | None = None) -> sqlite3.Connection:
+def _connect(db_path: str | None = None) -> sqlite3.Connection | _TursoConnection:
     resolved = get_db_path(db_path)
+    if is_turso_url(resolved):
+        defaults = _load_env_defaults()
+        token = os.environ.get("TURSO_AUTH_TOKEN") or defaults.get("TURSO_AUTH_TOKEN", "")
+        return _TursoConnection(resolved, auth_token=token)
     os.makedirs(os.path.dirname(os.path.abspath(resolved)), exist_ok=True)
     conn = sqlite3.connect(resolved, timeout=10.0, isolation_level=None)
     conn.row_factory = sqlite3.Row
@@ -151,14 +321,26 @@ def _connect(db_path: str | None = None) -> sqlite3.Connection:
     return conn
 
 
+def _ensure_db_initialized(db_path: str | None = None) -> None:
+    resolved = get_db_path(db_path)
+    if is_turso_url(resolved) and normalize_turso_pipeline_url(resolved) in _TURSO_INITIALIZED_URLS:
+        return
+    init_db(db_path=db_path, reset=False)
+
+
 def init_db(db_path: str | None = None, reset: bool = False) -> dict:
+    resolved = get_db_path(db_path)
+    turso_mode = is_turso_url(resolved)
+    if reset and turso_mode:
+        _TURSO_INITIALIZED_URLS.discard(normalize_turso_pipeline_url(resolved))
+
     conn = _connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE;")
         if reset:
             conn.execute("DROP TABLE IF EXISTS orders;")
             conn.execute("DROP TABLE IF EXISTS store_state;")
-        else:
+        elif not turso_mode:
             # Ensure orders table has the canonical schema (`number`, `isNotified`, `isDone`)
             cols = [
                 r["name"]
@@ -200,8 +382,12 @@ def init_db(db_path: str | None = None, reset: bool = False) -> dict:
                 (json.dumps(seed_state, ensure_ascii=False), now_iso),
             )
             conn.execute("COMMIT;")
+            if turso_mode:
+                _TURSO_INITIALIZED_URLS.add(normalize_turso_pipeline_url(resolved))
             return seed_state
         conn.execute("COMMIT;")
+        if turso_mode:
+            _TURSO_INITIALIZED_URLS.add(normalize_turso_pipeline_url(resolved))
         return json.loads(row["data"])
     except Exception:
         conn.execute("ROLLBACK;")
@@ -233,7 +419,7 @@ def save_store_state(
     db_path: str | None = None,
     allow_counter_reset: bool = False,
 ) -> dict:
-    init_db(db_path=db_path, reset=False)
+    _ensure_db_initialized(db_path=db_path)
     conn = _connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE;")
@@ -462,7 +648,7 @@ def save_store_state(
 
 
 def create_order(payload: dict, db_path: str | None = None) -> dict:
-    init_db(db_path=db_path, reset=False)
+    _ensure_db_initialized(db_path=db_path)
     customer_name = str(payload.get("customerName") or "").strip()
     if not customer_name:
         raise ValueError("Customer name is required")
@@ -644,7 +830,7 @@ def _row_to_order(row: sqlite3.Row) -> dict:
 
 
 def list_orders(status: str | None = None, db_path: str | None = None) -> list[dict]:
-    init_db(db_path=db_path, reset=False)
+    _ensure_db_initialized(db_path=db_path)
     conn = _connect(db_path)
     try:
         if status == "pending":
@@ -667,7 +853,7 @@ def list_orders(status: str | None = None, db_path: str | None = None) -> list[d
 def update_order_status(
     order_id: str, patch: dict | str, db_path: str | None = None
 ) -> dict | None:
-    init_db(db_path=db_path, reset=False)
+    _ensure_db_initialized(db_path=db_path)
     conn = _connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE;")
@@ -708,7 +894,7 @@ def update_order_status(
 
 
 def reset_orders(db_path: str | None = None) -> dict:
-    init_db(db_path=db_path, reset=False)
+    _ensure_db_initialized(db_path=db_path)
     conn = _connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE;")

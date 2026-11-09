@@ -385,6 +385,138 @@ class TestMilestone1And2Utils(unittest.TestCase):
         self.assertIn("new Blob([JSON.stringify", admin_menu_js)
         self.assertIn("saveStoreState", admin_menu_js)
 
+    def test_turso_http_pipeline_adapter_and_env_overrides(self):
+        import io
+        import json
+        import sqlite3
+        from unittest.mock import patch
+        from api.db import (
+            list_orders,
+            normalize_turso_pipeline_url,
+            reset_orders,
+            update_order_status,
+        )
+
+        self.assertEqual(
+            normalize_turso_pipeline_url("libsql://courtyard-coffee.turso.io"),
+            "https://courtyard-coffee.turso.io/v2/pipeline",
+        )
+
+        backing_conn = sqlite3.connect(":memory:")
+        captured_requests = []
+
+        def fake_urlopen(req, timeout=10.0):
+            auth = req.headers.get("Authorization") or req.headers.get("authorization")
+            body = json.loads(req.data.decode("utf-8"))
+            captured_requests.append((req.full_url, auth, body))
+
+            results = []
+            for item in body.get("requests", []):
+                if item.get("type") == "close":
+                    results.append({"type": "ok", "response": {"type": "close"}})
+                    continue
+                stmt = item["stmt"]
+                sql = stmt["sql"]
+                raw_args = stmt.get("args", [])
+                py_args = []
+                for a in raw_args:
+                    if a["type"] == "null":
+                        py_args.append(None)
+                    elif a["type"] == "integer":
+                        py_args.append(int(a["value"]))
+                    elif a["type"] == "float":
+                        py_args.append(float(a["value"]))
+                    else:
+                        py_args.append(str(a["value"]))
+                cur = backing_conn.execute(sql, tuple(py_args))
+                backing_conn.commit()
+                cols = [{"name": d[0]} for d in (cur.description or [])]
+                rows = []
+                for r in cur.fetchall():
+                    row_cells = []
+                    for val in r:
+                        if val is None:
+                            row_cells.append({"type": "null"})
+                        elif isinstance(val, int):
+                            row_cells.append({"type": "integer", "value": str(val)})
+                        elif isinstance(val, float):
+                            row_cells.append({"type": "float", "value": val})
+                        else:
+                            row_cells.append({"type": "text", "value": str(val)})
+                    rows.append(row_cells)
+                results.append(
+                    {
+                        "type": "ok",
+                        "response": {
+                            "type": "execute",
+                            "result": {"cols": cols, "rows": rows},
+                        },
+                    }
+                )
+
+            resp_bytes = json.dumps({"results": results}).encode("utf-8")
+
+            class _Resp(io.BytesIO):
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *args):
+                    pass
+
+            return _Resp(resp_bytes)
+
+        turso_url = "libsql://courtyard-test.turso.io"
+        old_token = os.environ.get("TURSO_AUTH_TOKEN")
+        old_pin = os.environ.get("DEFAULT_ADMIN_PIN")
+        os.environ["TURSO_AUTH_TOKEN"] = "test-turso-jwt-token"
+        os.environ["DEFAULT_ADMIN_PIN"] = "4321"
+        try:
+            with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+                seeded = init_db(db_path=turso_url, reset=True)
+                self.assertEqual(seeded["adminPin"], "4321")
+                self.assertEqual(seeded["nextOrderNumber"], 101)
+                self.assertTrue(len(captured_requests) >= 3)
+                self.assertEqual(
+                    captured_requests[0][0],
+                    "https://courtyard-test.turso.io/v2/pipeline",
+                )
+                self.assertEqual(captured_requests[0][1], "Bearer test-turso-jwt-token")
+
+                order = create_order(
+                    {
+                        "customerName": "תומר",
+                        "customerPhone": "052-1234567",
+                        "items": [{"itemId": "item-croissant", "qty": 2}],
+                    },
+                    db_path=turso_url,
+                )
+                self.assertEqual(order["number"], 101)
+                self.assertEqual(order["total"], 24)
+
+                pending = list_orders(status="pending", db_path=turso_url)
+                self.assertEqual(len(pending), 1)
+                self.assertEqual(pending[0]["customerName"], "תומר")
+
+                patched = update_order_status(
+                    order["id"], {"isNotified": True, "isDone": True}, db_path=turso_url
+                )
+                self.assertIs(patched["isDone"], True)
+
+                reset_res = reset_orders(db_path=turso_url)
+                self.assertTrue(reset_res["ok"])
+                after_reset = get_store_state(db_path=turso_url)
+                self.assertEqual(after_reset["nextOrderNumber"], 101)
+        finally:
+            backing_conn.close()
+            if old_token is None:
+                os.environ.pop("TURSO_AUTH_TOKEN", None)
+            else:
+                os.environ["TURSO_AUTH_TOKEN"] = old_token
+            if old_pin is None:
+                os.environ.pop("DEFAULT_ADMIN_PIN", None)
+            else:
+                os.environ["DEFAULT_ADMIN_PIN"] = old_pin
+
 
 if __name__ == "__main__":
     unittest.main()

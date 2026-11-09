@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS orders (
 /usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/server.py
 ```
 
-### 4.3 Run the Unit, Route & Contract Test Suite (17 Tests)
+### 4.3 Run the Unit, Route & Contract Test Suite (19 Tests)
 ```bash
 /usr/bin/python3 -m unittest discover -s /Users/joshuacooper/Documents/code/courtyard-coffee/tests -t /Users/joshuacooper/Documents/code/courtyard-coffee -v
 ```
@@ -86,3 +86,28 @@ Starts `server.py`, launches headless Google Chrome, executes M1 smoke tests and
 ```bash
 /usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/cdp_harness.py
 ```
+
+---
+
+## 5. Production Deployment (Vercel + Turso Serverless SQLite)
+
+Courtyard Coffee is pre-configured for zero-dependency deployment on **Vercel** (`vercel.json` + `api/index.py`) backed by **Turso Serverless SQLite** over HTTPS (`/v2/pipeline` via Python stdlib `urllib.request` in `api/db.py`).
+
+### 5.1 Dual-Mode Database Persistence (`api/db.py`)
+- **Local Development & CI (`TURSO_DATABASE_URL` unset)**: Uses local `sqlite3` at `./db/data.db` (or `/tmp/courtyard_coffee.db` on Vercel preview deployments before Turso is connected).
+- **Production Cloud (`TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` set)**: Automatically routes all SQL queries (`store_state` and `orders`) over HTTPS to Turso's `/v2/pipeline` endpoint (`_TursoConnection`) with zero external Python packages required.
+
+### 5.2 Admin PIN Header Security (`X-Admin-Pin`)
+- The frontend (`src/state.js` `getAdminHeaders()`) automatically attaches the unlocked `X-Admin-Pin` header to all admin write requests (`PUT /api/store`, `PATCH /api/orders/:id`, `POST /api/orders/reset`).
+- `api/handler.py` validates `X-Admin-Pin` against the active store's `adminPin` whenever the header is present (or unconditionally when `REQUIRE_ADMIN_PIN=1` is set in environment variables).
+
+### 5.3 Vercel Environment Variables
+Configure the following in **Vercel Dashboard → Project Settings → Environment Variables**:
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `TURSO_DATABASE_URL` | Turso database URL (`libsql://` or `https://`) | `libsql://courtyard-coffee-yourorg.turso.io` |
+| `TURSO_AUTH_TOKEN` | Turso database read/write JWT token | `eyJhbGciOiJFZERTQSI...` |
+| `DEFAULT_ADMIN_PIN` | Initial 4-digit staff PIN on first seed | `1234` |
+| `DEFAULT_BIT_PHONE` | Initial Bit phone number for QR & copy button | `050-0000000` |
+| `REQUIRE_ADMIN_PIN` | Set to `1` to strictly require `X-Admin-Pin` on all admin writes | `1` |
+

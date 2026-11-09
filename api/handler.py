@@ -3,9 +3,15 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
+import sys
 from http.server import SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 from api.db import (
     create_order,
@@ -16,7 +22,7 @@ from api.db import (
     update_order_status,
 )
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
+MAX_BODY_BYTES = 2 * 1024 * 1024
 
 MIME_MAP = {
     ".html": "text/html; charset=utf-8",
@@ -59,16 +65,34 @@ class CourtyardRequestHandler(SimpleHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0") or "0")
         if length <= 0:
             return {}
+        if length > MAX_BODY_BYTES:
+            raise ValueError(f"Payload exceeds maximum allowed size ({MAX_BODY_BYTES} bytes)")
         raw = self.rfile.read(length)
         if not raw:
             return {}
         return json.loads(raw.decode("utf-8"))
 
+    def _verify_admin_pin(self) -> bool:
+        provided_pin = self.headers.get("X-Admin-Pin")
+        require_pin = os.environ.get("REQUIRE_ADMIN_PIN", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if provided_pin is None and not require_pin:
+            return True
+        store = get_store_state(db_path=self.db_path)
+        expected_pin = str(store.get("adminPin") or "1234").strip()
+        if not provided_pin or str(provided_pin).strip() != expected_pin:
+            self._send_json(401, {"error": "Unauthorized: Invalid or missing X-Admin-Pin"})
+            return False
+        return True
+
     def do_OPTIONS(self) -> None:
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Admin-Pin")
         self.end_headers()
 
     def do_GET(self) -> None:
@@ -115,6 +139,8 @@ class CourtyardRequestHandler(SimpleHTTPRequestHandler):
     def do_PUT(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/api/store":
+            if not self._verify_admin_pin():
+                return
             try:
                 payload = self._read_json_body()
                 updated = save_store_state(payload, db_path=self.db_path)
@@ -138,6 +164,8 @@ class CourtyardRequestHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/orders/reset":
+            if not self._verify_admin_pin():
+                return
             try:
                 res = reset_orders(db_path=self.db_path)
                 self._send_json(200, res)
@@ -150,6 +178,8 @@ class CourtyardRequestHandler(SimpleHTTPRequestHandler):
     def do_PATCH(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path.startswith("/api/orders/"):
+            if not self._verify_admin_pin():
+                return
             order_id = parsed.path.split("/api/orders/", 1)[1].strip("/")
             try:
                 payload = self._read_json_body()

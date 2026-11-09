@@ -43,9 +43,12 @@ class TestMilestone1And2Routes(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def _raw_http_request(self, method: str, path: str, payload=None):
+    def _raw_http_request(self, method: str, path: str, payload=None, extra_headers=None):
         body_bytes = b""
         headers = ["Host: 127.0.0.1:3000", "Connection: close"]
+        if extra_headers:
+            for k, v in extra_headers.items():
+                headers.append(f"{k}: {v}")
         if payload is not None:
             body_bytes = json.dumps(payload).encode("utf-8")
             headers.append("Content-Type: application/json")
@@ -64,8 +67,10 @@ class TestMilestone1And2Routes(unittest.TestCase):
         status_code = int(status_line.split(" ")[1])
         return status_code, resp_body.decode("utf-8", errors="replace")
 
-    def _request_json(self, method: str, path: str, payload=None):
-        status, text = self._raw_http_request(method, path, payload=payload)
+    def _request_json(self, method: str, path: str, payload=None, extra_headers=None):
+        status, text = self._raw_http_request(
+            method, path, payload=payload, extra_headers=extra_headers
+        )
         data = json.loads(text) if text.strip() else {}
         return status, data
 
@@ -529,6 +534,66 @@ class TestMilestone1And2Routes(unittest.TestCase):
         self.assertIn("item-photo-", admin_menu_js)
         self.assertIn("item-tag-", admin_menu_js)
         self.assertIn("delete-item-", admin_menu_js)
+
+    def test_admin_pin_header_enforcement_and_vercel_entrypoint(self):
+        from http.server import BaseHTTPRequestHandler
+        from api.index import handler as vercel_handler
+
+        self.assertTrue(issubclass(vercel_handler, BaseHTTPRequestHandler))
+        self.assertTrue(issubclass(vercel_handler, CourtyardRequestHandler))
+
+        vercel_json = json.loads((ROOT_DIR / "vercel.json").read_text(encoding="utf-8"))
+        self.assertEqual(vercel_json.get("version"), 2)
+        rewrites = vercel_json.get("rewrites") or []
+        self.assertTrue(any(r.get("destination") == "/api/index.py" for r in rewrites))
+        self.assertTrue(any(r.get("destination") == "/index.html" for r in rewrites))
+
+        state_js = (ROOT_DIR / "src" / "state.js").read_text(encoding="utf-8")
+        self.assertIn("getAdminHeaders", state_js)
+        self.assertIn("X-Admin-Pin", state_js)
+
+        _, store = self._request_json("GET", "/api/store")
+
+        # Wrong X-Admin-Pin header must be rejected with 401
+        status_bad_pin, err_bad = self._request_json(
+            "PUT",
+            "/api/store",
+            store,
+            extra_headers={"X-Admin-Pin": "9999"},
+        )
+        self.assertEqual(status_bad_pin, 401)
+        self.assertIn("Unauthorized", err_bad.get("error", ""))
+
+        # Valid X-Admin-Pin header succeeds with 200
+        store["closedNoteHe"] = "בדיקת פין תקין"
+        status_good_pin, updated = self._request_json(
+            "PUT",
+            "/api/store",
+            store,
+            extra_headers={"X-Admin-Pin": "1234"},
+        )
+        self.assertEqual(status_good_pin, 200)
+        self.assertEqual(updated["closedNoteHe"], "בדיקת פין תקין")
+
+        # When REQUIRE_ADMIN_PIN=1 is set, missing X-Admin-Pin is rejected with 401
+        old_req = os.environ.get("REQUIRE_ADMIN_PIN")
+        os.environ["REQUIRE_ADMIN_PIN"] = "1"
+        try:
+            status_missing, _ = self._request_json("POST", "/api/orders/reset", {})
+            self.assertEqual(status_missing, 401)
+            status_with_pin, reset_ok = self._request_json(
+                "POST",
+                "/api/orders/reset",
+                {},
+                extra_headers={"X-Admin-Pin": "1234"},
+            )
+            self.assertEqual(status_with_pin, 200)
+            self.assertTrue(reset_ok.get("ok"))
+        finally:
+            if old_req is None:
+                os.environ.pop("REQUIRE_ADMIN_PIN", None)
+            else:
+                os.environ["REQUIRE_ADMIN_PIN"] = old_req
 
 
 if __name__ == "__main__":
