@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Pure-Python stdlib Chrome DevTools Protocol (CDP) Live Browser Smoke & CUJ Verification Harness
-for Courtyard Coffee (Milestone 1 + Milestone 2 CUJ-01..03). Zero Node/npm dependencies.
+for Courtyard Coffee (Milestone 1 + Milestone 2 CUJ-01..03 + Milestone 3 CUJ-04..06 + Milestone 4 CUJ-07).
+Zero Node/npm dependencies.
 """
 import base64
 import json
@@ -13,6 +14,7 @@ import subprocess
 import time
 import urllib.parse
 import urllib.request
+import zlib
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCREENSHOTS_DIR = os.path.join(ROOT_DIR, "screenshots")
@@ -905,6 +907,408 @@ def run_m3_cujs(cdp: CDPClient, report: dict):
     }
 
 
+def _png_chunk_bytes(chunk_type: bytes, data: bytes) -> bytes:
+    crc = zlib.crc32(chunk_type + data) & 0xFFFFFFFF
+    return struct.pack(">I", len(data)) + chunk_type + data + struct.pack(">I", crc)
+
+
+def generate_test_upload_1000x800_png(out_path: str) -> dict:
+    """
+    Generates a valid 1000x800 RGB PNG file on disk with a centered Iced Matcha graphic
+    so center-cropping to 400x400 JPEG via compressImageFileToDataUrl produces a crisp square thumbnail.
+    """
+    width, height = 1000, 800
+    c_bg = b"\xf2\xec\xe1"       # Warm subtle border (#F2ECE1)
+    c_sage = b"\x3f\x62\x4d"     # Sage frame (#3F624D)
+    c_cream = b"\xfa\xf6\xf0"    # Inner cream backdrop (#FAF6F0)
+    c_milk = b"\xff\xfd\xf9"     # Cold milk foam (#FFFDF9)
+    c_matcha_lt = b"\x74\xa1\x5e"  # Upper iced matcha layer
+    c_matcha_dk = b"\x46\x78\x42"  # Lower rich matcha layer
+    c_straw = b"\xc8\x6d\x51"    # Terracotta straw (#C86D51)
+    c_rim = b"\x26\x1c\x18"      # Cup outline (#261C18)
+
+    scanlines = []
+    for y in range(height):
+        if y < 60 or y >= 740:
+            row = c_bg * width
+        elif y < 110 or y >= 690:
+            row = c_bg * 160 + c_sage * 680 + c_bg * 160
+        else:
+            # Inside 210..790 cream card
+            left_pad = c_bg * 160 + c_sage * 50
+            right_pad = c_sage * 50 + c_bg * 160
+            if 130 <= y < 185:
+                # Straw sticking out above the cup
+                inner = c_cream * 272 + c_straw * 24 + c_cream * 284
+            elif 185 <= y < 193:
+                # Cup top rim
+                inner = c_cream * 120 + c_rim * 340 + c_cream * 120
+            elif 193 <= y < 295:
+                # Cold milk & ice cubes top layer + straw
+                if 220 <= y < 275:
+                    # Two white ice cubes highlighted in pale matcha
+                    inner = (
+                        c_cream * 130
+                        + c_rim * 6
+                        + c_milk * 44
+                        + c_matcha_lt * 60
+                        + c_milk * 32
+                        + c_straw * 24
+                        + c_milk * 38
+                        + c_matcha_lt * 60
+                        + c_milk * 50
+                        + c_rim * 6
+                        + c_cream * 130
+                    )
+                else:
+                    inner = (
+                        c_cream * 130
+                        + c_rim * 6
+                        + c_milk * 136
+                        + c_straw * 24
+                        + c_milk * 148
+                        + c_rim * 6
+                        + c_cream * 130
+                    )
+            elif 295 <= y < 460:
+                # Mid vibrant iced matcha layer
+                inner = (
+                    c_cream * 130
+                    + c_rim * 6
+                    + c_matcha_lt * 308
+                    + c_rim * 6
+                    + c_cream * 130
+                )
+            elif 460 <= y < 615:
+                # Deep rich matcha base
+                inner = (
+                    c_cream * 130
+                    + c_rim * 6
+                    + c_matcha_dk * 308
+                    + c_rim * 6
+                    + c_cream * 130
+                )
+            elif 615 <= y < 623:
+                # Cup bottom rim
+                inner = c_cream * 130 + c_rim * 320 + c_cream * 130
+            else:
+                inner = c_cream * 580
+            row = left_pad + inner + right_pad
+        scanlines.append(b"\x00" + row)
+
+    raw_bytes = b"".join(scanlines)
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    png_data = (
+        b"\x89PNG\r\n\x1a\n"
+        + _png_chunk_bytes(b"IHDR", ihdr)
+        + _png_chunk_bytes(b"IDAT", zlib.compress(raw_bytes, level=6))
+        + _png_chunk_bytes(b"IEND", b"")
+    )
+    with open(out_path, "wb") as f:
+        f.write(png_data)
+
+    # Verify IHDR header dimensions directly from written file
+    with open(out_path, "rb") as f:
+        header = f.read(24)
+    w_hdr, h_hdr = struct.unpack(">II", header[16:24])
+    return {
+        "path": out_path,
+        "byteSize": len(png_data),
+        "width": w_hdr,
+        "height": h_hdr,
+    }
+
+
+def run_m4_cuj07(cdp: CDPClient, report: dict):
+    """
+    Executes Milestone 4 CUJ-07: Admin Spreadsheet & Photo Album Manager (/admin/menu -> /),
+    verifying client-side 1000x800 PNG -> 400x400 JPEG compression, Store JSON Inspector byte size,
+    Global Tag CRUD ("Almond Milk" / "חלב שקדים", +2 NIS), Menu Item CRUD ("Iced Matcha" / "מאצ׳ה אייס", 18 NIS),
+    SQLite store_state persistence, and mobile customer storefront customization sheet.
+    """
+    db_file = os.path.join(ROOT_DIR, "db", "data.db")
+    test_upload_path = os.path.join(SCREENSHOTS_DIR, "test_upload_1000x800.png")
+    upload_file_meta = generate_test_upload_1000x800_png(test_upload_path)
+
+    cdp.call("DOM.enable")
+    cdp.set_viewport(1280, 800, mobile=False)
+    cdp.navigate_and_wait(
+        f"http://127.0.0.1:{SERVER_PORT}/admin/menu",
+        '[data-testid="admin-menu-view"]',
+    )
+
+    initial_admin_state = cdp.evaluate(
+        """
+        (() => {
+          return {
+            htmlDir: document.documentElement.getAttribute('dir'),
+            mainDir: document.querySelector('[data-testid="admin-menu-view"]')?.getAttribute('dir'),
+            storedPin: localStorage.getItem('adminPin'),
+            initialByteSizeText: document.querySelector('[data-testid="json-byte-size"]')?.textContent?.trim(),
+            initialOverviewText: document.querySelector('[data-testid="admin-overview-counts"]')?.textContent?.trim(),
+            initialIsOpenChecked: Boolean(document.querySelector('[data-testid="setting-is-open"]')?.checked)
+          };
+        })()
+        """
+    )
+
+    # Step 1: Ensure store isOpen is toggled back to true (and restore Oat Milk & Butter Croissant inStock)
+    # and set new photo label input to "Iced Matcha Photo" before file selection
+    cdp.evaluate(
+        """
+        (() => {
+          const isOpenCheckbox = document.querySelector('[data-testid="setting-is-open"]');
+          if (isOpenCheckbox && !isOpenCheckbox.checked) {
+            isOpenCheckbox.click();
+          }
+          const oatStock = document.querySelector('[data-testid="tag-instock-tag-oat"]');
+          if (oatStock && !oatStock.checked) {
+            oatStock.click();
+          }
+          const croissantStock = document.querySelector('[data-testid="item-instock-item-croissant"]');
+          if (croissantStock && !croissantStock.checked) {
+            croissantStock.click();
+          }
+          const labelInput = document.querySelector('[data-testid="new-photo-label-input"]');
+          labelInput.value = 'Iced Matcha Photo';
+          labelInput.dispatchEvent(new Event('input', { bubbles: true }));
+        })()
+        """
+    )
+
+    # Step 2: Upload 1000x800 PNG via CDP DOM.setFileInputFiles on [data-testid="new-photo-file-input"]
+    doc_root = cdp.call("DOM.getDocument", {"depth": 1})["root"]["nodeId"]
+    file_input_node = cdp.call(
+        "DOM.querySelector",
+        {
+            "nodeId": doc_root,
+            "selector": '[data-testid="new-photo-file-input"]',
+        },
+    )["nodeId"]
+    cdp.call(
+        "DOM.setFileInputFiles",
+        {
+            "nodeId": file_input_node,
+            "files": [test_upload_path],
+        },
+    )
+
+    # Wait for client-side compressImageFileToDataUrl(file, 400, 0.82) to complete and verify 400x400 JPEG
+    photo_upload_telemetry = cdp.evaluate(
+        """
+        (async () => {
+          for (let i = 0; i < 50; i++) {
+            if (window.__lastPhotoUploadPromise) break;
+            await new Promise(r => setTimeout(r, 50));
+          }
+          const uploadedPhoto = await window.__lastPhotoUploadPromise;
+          const imgEl = document.querySelector(`[data-testid="photo-img-${uploadedPhoto.id}"]`);
+          if (imgEl && !imgEl.complete) {
+            await new Promise(r => { imgEl.onload = r; imgEl.onerror = r; });
+          }
+          return {
+            photoId: uploadedPhoto.id,
+            label: uploadedPhoto.label,
+            dataUrlPrefix: uploadedPhoto.url.slice(0, 23),
+            dataUrlLength: uploadedPhoto.url.length,
+            thumbPresentInDom: Boolean(imgEl),
+            thumbComplete: Boolean(imgEl?.complete),
+            thumbNaturalWidth: imgEl?.naturalWidth || 0,
+            thumbNaturalHeight: imgEl?.naturalHeight || 0
+          };
+        })()
+        """
+    )
+
+    # Step 3: Add Global Tag ("Almond Milk" / "חלב שקדים", price: 2, inStock: true)
+    # Step 4: Add Menu Item ("Iced Matcha" / "מאצ׳ה אייס", descHe: "מאצ׳ה יפנית על חלב קר", price: 18, category: "Coffee",
+    #         photo: "Iced Matcha Photo", tag: "Almond Milk")
+    # Step 5: Click "Save Changes" ([data-testid="admin-save-btn"]) and await PUT /api/store
+    admin_crud_telemetry = cdp.evaluate(
+        """
+        (async () => {
+          const setInput = (el, val) => {
+            el.value = String(val);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          };
+
+          // Add Global Tag
+          document.querySelector('[data-testid="add-global-tag-btn"]').click();
+          const tagRows = Array.from(document.querySelectorAll('#admin-tags-tbody tr'));
+          const newTagRow = tagRows[tagRows.length - 1];
+          const newTagId = newTagRow.getAttribute('data-tag-id');
+
+          setInput(document.querySelector(`[data-testid="tag-name-en-${newTagId}"]`), 'Almond Milk');
+          setInput(document.querySelector(`[data-testid="tag-name-he-${newTagId}"]`), 'חלב שקדים');
+          setInput(document.querySelector(`[data-testid="tag-price-${newTagId}"]`), 2);
+          const tagStockEl = document.querySelector(`[data-testid="tag-instock-${newTagId}"]`);
+          if (!tagStockEl.checked) tagStockEl.click();
+
+          // Add Menu Item
+          document.querySelector('[data-testid="add-menu-item-btn"]').click();
+          const itemRows = Array.from(document.querySelectorAll('#admin-items-tbody tr'));
+          const newItemRow = itemRows[itemRows.length - 1];
+          const newItemId = newItemRow.getAttribute('data-item-id');
+
+          setInput(document.querySelector(`[data-testid="item-category-${newItemId}"]`), 'Coffee');
+          setInput(document.querySelector(`[data-testid="item-name-en-${newItemId}"]`), 'Iced Matcha');
+          setInput(document.querySelector(`[data-testid="item-name-he-${newItemId}"]`), 'מאצ׳ה אייס');
+          setInput(document.querySelector(`[data-testid="item-desc-he-${newItemId}"]`), 'מאצ׳ה יפנית על חלב קר');
+          setInput(document.querySelector(`[data-testid="item-price-${newItemId}"]`), 18);
+          const itemStockEl = document.querySelector(`[data-testid="item-instock-${newItemId}"]`);
+          if (!itemStockEl.checked) itemStockEl.click();
+
+          // Select "Iced Matcha Photo" from the item photo dropdown
+          const photoSelect = document.querySelector(`[data-testid="item-photo-${newItemId}"]`);
+          const matchaOption = Array.from(photoSelect.options).find(opt => opt.textContent.trim() === 'Iced Matcha Photo');
+          if (matchaOption) {
+            photoSelect.value = matchaOption.value;
+            photoSelect.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+
+          // Attach "Almond Milk" tag pill to the new menu item
+          const almondPill = document.querySelector(`[data-testid="item-tag-${newItemId}-${newTagId}"]`);
+          if (almondPill && !almondPill.classList.contains('selected')) {
+            almondPill.click();
+          }
+
+          const statusBeforeSave = document.querySelector('[data-testid="admin-save-status"]')?.textContent?.trim();
+
+          // Click Save Changes
+          document.querySelector('[data-testid="admin-save-btn"]').click();
+          if (window.__lastAdminSavePromise) {
+            await window.__lastAdminSavePromise;
+          }
+
+          const stateMod = await import('/src/state.js');
+          const savedStore = stateMod.appState.store;
+          const exactBlobBytes = new Blob([JSON.stringify(savedStore)]).size;
+          const byteSizeBadgeText = document.querySelector('[data-testid="json-byte-size"]')?.textContent?.trim();
+          const saveStatusAfter = document.querySelector('[data-testid="admin-save-status"]')?.textContent?.trim();
+          const mainRect = document.querySelector('[data-testid="admin-menu-view"]')?.getBoundingClientRect();
+
+          return {
+            newTagId,
+            newItemId,
+            statusBeforeSave,
+            saveStatusAfter,
+            byteSizeBadgeText,
+            exactBlobBytes,
+            byteBadgeMatchesBlobSize: Boolean(byteSizeBadgeText && byteSizeBadgeText.includes(exactBlobBytes.toLocaleString())),
+            overviewCountsText: document.querySelector('[data-testid="admin-overview-counts"]')?.textContent?.trim(),
+            adminViewBottomPx: mainRect ? Math.round(mainRect.bottom) : null,
+            fitsIn800pxViewport: Boolean(mainRect && mainRect.bottom <= 800)
+          };
+        })()
+        """
+    )
+
+    s_cuj07_1 = os.path.join(SCREENSHOTS_DIR, "cuj07_admin_spreadsheet.png")
+    cdp.screenshot(s_cuj07_1)
+
+    # Verify SQLite store_state after Save Changes
+    sqlite_cuj07_summary = subprocess.check_output(
+        [
+            "/usr/bin/sqlite3",
+            db_file,
+            (
+                "SELECT json_extract(data, '$.isOpen'), "
+                "json_extract(data, '$.nextOrderNumber'), "
+                "json_array_length(json_extract(data, '$.photoAlbum')), "
+                "json_array_length(json_extract(data, '$.globalTags')), "
+                "json_array_length(json_extract(data, '$.menuItems')), "
+                "json_extract(data, '$.globalTags[3].nameEn'), "
+                "json_extract(data, '$.globalTags[3].nameHe'), "
+                "json_extract(data, '$.globalTags[3].price'), "
+                "json_extract(data, '$.menuItems[2].nameEn'), "
+                "json_extract(data, '$.menuItems[2].nameHe'), "
+                "json_extract(data, '$.menuItems[2].price'), "
+                "substr(json_extract(data, '$.menuItems[2].photo'), 1, 23) "
+                "FROM store_state WHERE id = 1;"
+            ),
+        ],
+        text=True,
+    ).strip()
+
+    # Step 6: Switch to Customer Storefront (390x844 mobile RTL), verify "מאצ׳ה אייס" (18 NIS) with 400x400 JPEG thumbnail,
+    # open TagBottomSheet, select "חלב שקדים (+2 ₪)" -> CTA updates to "הוסף להזמנה • 20 ₪"
+    cdp.set_viewport(390, 844, mobile=True)
+    cdp.navigate_and_wait(
+        f"http://127.0.0.1:{SERVER_PORT}/",
+        '[data-testid="customer-storefront"]',
+    )
+
+    cuj07_customer_telemetry = cdp.evaluate(
+        """
+        (async () => {
+          const cards = Array.from(document.querySelectorAll('.menu-card'));
+          const matchaCard = cards.find(c => c.querySelector('.menu-card-title')?.textContent?.trim() === 'מאצ׳ה אייס');
+          const matchaItemId = matchaCard?.getAttribute('data-item-id');
+          const matchaImg = matchaCard?.querySelector('img.menu-thumb');
+          if (matchaImg && !matchaImg.complete) {
+            await new Promise(r => { matchaImg.onload = r; matchaImg.onerror = r; });
+          }
+
+          const addBtn = matchaCard?.querySelector('[data-add-item]');
+          if (addBtn) addBtn.click();
+
+          const tagSheet = document.querySelector('[data-testid="tag-bottom-sheet"]');
+          const confirmBtnBefore = document.querySelector('[data-testid="confirm-customization-btn"]')?.textContent?.trim();
+
+          const tagPills = Array.from(document.querySelectorAll('.tag-option-pill'));
+          const almondPill = tagPills.find(p => p.textContent.includes('חלב שקדים'));
+          if (almondPill) almondPill.click();
+
+          const almondPillAfter = Array.from(document.querySelectorAll('.tag-option-pill')).find(p => p.textContent.includes('חלב שקדים'));
+          const confirmBtnAfter = document.querySelector('[data-testid="confirm-customization-btn"]')?.textContent?.trim();
+          const matchaCardAfter = Array.from(document.querySelectorAll('.menu-card')).find(
+            c => c.querySelector('.menu-card-title')?.textContent?.trim() === 'מאצ׳ה אייס'
+          );
+          const sheetCard = document.querySelector('.bottom-sheet-card');
+          const cardRect = matchaCardAfter?.getBoundingClientRect();
+          const sheetRect = sheetCard?.getBoundingClientRect();
+
+          return {
+            htmlDir: document.documentElement.getAttribute('dir'),
+            statusBadgeText: document.querySelector('[data-testid="store-status-badge"]')?.textContent?.trim(),
+            matchaItemId,
+            matchaTitleText: matchaCard?.querySelector('.menu-card-title')?.textContent?.trim(),
+            matchaDescText: matchaCard?.querySelector('.menu-card-desc')?.textContent?.trim(),
+            matchaPriceText: matchaCard?.querySelector('.price-tag')?.textContent?.trim(),
+            matchaImgSrcPrefix: matchaImg?.getAttribute('src')?.slice(0, 23) || '',
+            matchaImgComplete: Boolean(matchaImg?.complete),
+            matchaImgNaturalWidth: matchaImg?.naturalWidth || 0,
+            matchaImgNaturalHeight: matchaImg?.naturalHeight || 0,
+            tagSheetOpen: Boolean(tagSheet),
+            almondPillText: almondPillAfter?.textContent?.replace(/\\s+/g, ' ')?.trim(),
+            almondPillSelected: Boolean(almondPillAfter?.classList.contains('selected')),
+            confirmBtnTextBeforeSelect: confirmBtnBefore,
+            confirmBtnTextAfterSelect: confirmBtnAfter,
+            layoutBoxes: {
+              matchaCardBottomPx: cardRect ? Math.round(cardRect.bottom) : null,
+              sheetCardTopPx: sheetRect ? Math.round(sheetRect.top) : null,
+              matchaCardVisibleAboveSheet: Boolean(cardRect && sheetRect && cardRect.bottom <= sheetRect.top)
+            }
+          };
+        })()
+        """
+    )
+
+    s_cuj07_2 = os.path.join(SCREENSHOTS_DIR, "cuj07_customer_new_item.png")
+    cdp.screenshot(s_cuj07_2)
+
+    report["m4_cuj07"] = {
+        "uploadFile": upload_file_meta,
+        "initialAdminState": initial_admin_state,
+        "photoCompressionProof": photo_upload_telemetry,
+        "adminSpreadsheetCrud": admin_crud_telemetry,
+        "sqliteStoreStateAfterSave": sqlite_cuj07_summary,
+        "customerNewItemAndTagSheet": cuj07_customer_telemetry,
+        "screenshots": [s_cuj07_1, s_cuj07_2],
+    }
+
+
 def run_m1_smoke():
     os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
     subprocess.run(["/usr/bin/python3", os.path.join(ROOT_DIR, "scripts", "seed.py")], check=True)
@@ -1329,7 +1733,10 @@ def run_m1_smoke():
         # 7. Execute Milestone 3 CUJ-04, CUJ-05, CUJ-06 end-to-end (PIN gate, KDS 2-tap lifecycle, Quick-86 & Closed Banner)
         run_m3_cujs(cdp, report)
 
-        for fname in ("m2_cuj_report.json", "m3_cuj_report.json"):
+        # 8. Execute Milestone 4 CUJ-07 end-to-end (Admin Spreadsheet, 400x400 Photo Upload, Tag/Item CRUD & Customer Storefront)
+        run_m4_cuj07(cdp, report)
+
+        for fname in ("m2_cuj_report.json", "m3_cuj_report.json", "m4_cuj_report.json"):
             report_path = os.path.join(SCREENSHOTS_DIR, fname)
             with open(report_path, "w", encoding="utf-8") as rf:
                 json.dump(report, rf, ensure_ascii=False, indent=2)

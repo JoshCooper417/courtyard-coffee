@@ -222,9 +222,9 @@ export function mountAdminMenuRoute(container, initialStore) {
                 <th style="width: 145px;">Name (HE)</th>
                 <th>Description (HE)</th>
                 <th style="width: 86px;">Price (₪)</th>
-                <th style="width: 155px;">Photo</th>
-                <th style="width: 220px;">Attached Tags</th>
-                <th style="width: 74px;">Action</th>
+                <th style="width: 145px;">Photo</th>
+                <th style="width: 310px;">Attached Tags</th>
+                <th style="width: 68px;">Action</th>
               </tr>
             </thead>
             <tbody id="admin-items-tbody"></tbody>

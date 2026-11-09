@@ -1225,43 +1225,44 @@ button {
 
 /* Admin Menu & Spreadsheet Layout ("/admin/menu") */
 .admin-menu-shell {
-  padding: 12px 18px 20px;
+  padding: 8px 16px 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 7px;
+  min-height: auto;
 }
 
 .admin-menu-topbar {
-  padding: 10px 16px;
+  padding: 7px 14px;
   margin-bottom: 0;
 }
 
 .admin-menu-title-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .admin-menu-main-title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: var(--text-espresso);
 }
 
 .admin-overview-counts {
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--color-sage);
   background: rgba(63, 98, 77, 0.12);
-  padding: 3px 10px;
+  padding: 2px 9px;
   border-radius: var(--radius-pill);
 }
 
 .admin-menu-subtitle {
-  margin: 2px 0 0;
-  font-size: 0.82rem;
+  margin: 1px 0 0;
+  font-size: 0.78rem;
   color: var(--text-stone);
 }
 
@@ -1269,13 +1270,13 @@ button {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .admin-save-status {
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 800;
-  padding: 4px 10px;
+  padding: 3px 9px;
   border-radius: var(--radius-pill);
 }
 
@@ -1296,22 +1297,22 @@ button {
 }
 
 .admin-save-btn {
-  padding: 8px 16px;
-  font-size: 0.9rem;
-  border-radius: 10px;
+  padding: 6px 14px;
+  font-size: 0.84rem;
+  border-radius: 9px;
 }
 
 .admin-top-grid {
   display: grid;
   grid-template-columns: 1.45fr 1fr;
-  gap: 10px;
+  gap: 8px;
 }
 
 .admin-panel-card {
   background: var(--bg-card);
   border: 1px solid var(--border-warm);
-  border-radius: 12px;
-  padding: 10px 14px;
+  border-radius: 10px;
+  padding: 7px 12px;
   box-shadow: var(--shadow-soft);
 }
 
@@ -1320,13 +1321,13 @@ button {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 5px;
 }
 
 .admin-panel-title {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 800;
   color: var(--text-espresso);
 }
@@ -1334,8 +1335,8 @@ button {
 .admin-open-toggle-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
+  gap: 5px;
+  font-size: 0.8rem;
   font-weight: 800;
   color: var(--color-sage);
   cursor: pointer;
@@ -1343,7 +1344,7 @@ button {
 
 .admin-settings-fields {
   display: grid;
-  grid-template-columns: 150px 120px 1fr;
+  grid-template-columns: 140px 110px 1fr;
   gap: 8px;
   align-items: end;
 }
@@ -1351,8 +1352,8 @@ button {
 .admin-field-label {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  font-size: 0.76rem;
+  gap: 2px;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--text-stone);
 }
@@ -1360,12 +1361,12 @@ button {
 .admin-input,
 .admin-select {
   width: 100%;
-  padding: 5px 8px;
+  padding: 3px 7px;
   border: 1px solid var(--border-warm);
-  border-radius: 7px;
+  border-radius: 6px;
   background: var(--bg-courtyard);
   color: var(--text-espresso);
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   font-weight: 600;
 }
 
@@ -1392,17 +1393,17 @@ button {
 
 .admin-byte-badge {
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 800;
   color: var(--color-sage);
   background: var(--bg-subtle);
   border: 1px solid var(--border-warm);
-  padding: 3px 9px;
+  padding: 2px 8px;
   border-radius: var(--radius-pill);
 }
 
 .admin-json-details {
-  font-size: 0.8rem;
+  font-size: 0.76rem;
 }
 
 .admin-json-summary {
@@ -1413,15 +1414,15 @@ button {
 }
 
 .admin-json-pre {
-  margin: 6px 0 0;
-  max-height: 110px;
+  margin: 4px 0 0;
+  max-height: 90px;
   overflow: auto;
-  padding: 8px;
+  padding: 6px;
   background: var(--bg-courtyard);
   border: 1px solid var(--border-warm);
-  border-radius: 8px;
+  border-radius: 6px;
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: var(--text-espresso);
 }
 
@@ -1433,15 +1434,15 @@ button {
 }
 
 .admin-photo-label-new {
-  width: 240px;
+  width: 230px;
 }
 
 .admin-upload-btn-label {
   display: inline-flex;
   align-items: center;
-  padding: 5px 12px;
-  font-size: 0.82rem;
-  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -1464,17 +1465,17 @@ button {
 .admin-photo-card {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: 7px;
+  padding: 4px 7px;
   background: var(--bg-courtyard);
   border: 1px solid var(--border-warm);
-  border-radius: 9px;
+  border-radius: 8px;
 }
 
 .admin-photo-thumb {
-  width: 46px;
-  height: 46px;
-  border-radius: 7px;
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
   object-fit: cover;
   border: 1px solid var(--border-warm);
   flex-shrink: 0;
@@ -1483,23 +1484,23 @@ button {
 .admin-photo-card-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .admin-photo-label-input {
-  width: 150px;
+  width: 145px;
 }
 
 .admin-btn-xs {
-  padding: 4px 8px;
-  font-size: 0.75rem;
-  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 0.72rem;
+  border-radius: 5px;
 }
 
 .admin-add-row-btn {
-  padding: 5px 12px;
-  font-size: 0.82rem;
-  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  border-radius: 6px;
 }
 
 /* Spreadsheet Tables */
@@ -1511,13 +1512,13 @@ button {
 .admin-spreadsheet-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
 }
 
 .admin-spreadsheet-table th {
   text-align: left;
-  padding: 5px 6px;
-  font-size: 0.74rem;
+  padding: 3px 5px;
+  font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -1526,7 +1527,7 @@ button {
 }
 
 .admin-spreadsheet-table td {
-  padding: 4px 5px;
+  padding: 3px 4px;
   border-bottom: 1px solid var(--border-warm);
   vertical-align: middle;
 }
@@ -1546,12 +1547,12 @@ button {
 }
 
 .admin-item-tag-pill {
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-warm);
   background: var(--bg-courtyard);
   color: var(--text-stone);
-  font-size: 0.74rem;
+  font-size: 0.71rem;
   font-weight: 700;
   transition: all 0.12s ease;
 }
