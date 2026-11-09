@@ -97,35 +97,81 @@ def _rs_generator_poly(degree: int) -> list[int]:
     return gen
 
 
-_RS_GEN_10 = _rs_generator_poly(10)
+_RS_GEN_CACHE: dict[int, list[int]] = {10: _rs_generator_poly(10)}
+_RS_GEN_10 = _RS_GEN_CACHE[10]
 
 
-def _rs_encode_10(data_codewords: list[int]) -> list[int]:
-    ecc = [0] * 10
+def _rs_encode(data_codewords: list[int], ecc_count: int = 10) -> list[int]:
+    if ecc_count not in _RS_GEN_CACHE:
+        _RS_GEN_CACHE[ecc_count] = _rs_generator_poly(ecc_count)
+    gen = _RS_GEN_CACHE[ecc_count]
+    ecc = [0] * ecc_count
     for b in data_codewords:
         factor = b ^ ecc[0]
         ecc = ecc[1:] + [0]
         if factor != 0:
-            for j in range(10):
-                ecc[j] ^= _gf_mul(_RS_GEN_10[j + 1], factor)
+            for j in range(ecc_count):
+                ecc[j] ^= _gf_mul(gen[j + 1], factor)
     return ecc
+
+
+def _rs_encode_10(data_codewords: list[int]) -> list[int]:
+    return _rs_encode(data_codewords, 10)
+
+
+_QR_VERSION_SPECS = [
+    {"version": 2, "grid_size": 25, "data_codewords": 34, "ecc_codewords": 10, "max_bytes": 32},
+    {"version": 3, "grid_size": 29, "data_codewords": 55, "ecc_codewords": 15, "max_bytes": 53},
+    {"version": 4, "grid_size": 33, "data_codewords": 80, "ecc_codewords": 20, "max_bytes": 78},
+    {"version": 5, "grid_size": 37, "data_codewords": 108, "ecc_codewords": 26, "max_bytes": 106},
+]
+
+
+def format_bit_phone_digits(raw_bit_phone: str) -> str:
+    digits = re.sub(r"\D+", "", str(raw_bit_phone or "050-0000000"))
+    if not digits:
+        return "0500000000"
+    if digits.startswith("00972") and len(digits) >= 14:
+        digits = "0" + digits[5:]
+    elif digits.startswith("972") and len(digits) >= 11:
+        digits = "0" + digits[3:]
+    elif len(digits) == 9 and digits.startswith("5"):
+        digits = "0" + digits
+    return digits
+
+
+def build_bit_payment_url(raw_bit_phone: str) -> str:
+    trimmed = str(raw_bit_phone or "050-0000000").strip()
+    if trimmed.lower().startswith(("http://", "https://")):
+        return trimmed
+    digits = format_bit_phone_digits(trimmed)
+    return f"https://www.bitpay.co.il/app/me/{quote(digits, safe='')}"
 
 
 def build_iso_qr_v2l_matrix(text: str) -> list[list[bool]]:
     """
-    Builds a genuine ISO/IEC 18004 Version 2-L (25x25) QR matrix in Byte Mode with Mask Pattern 0.
+    Builds a genuine ISO/IEC 18004 Level-L (Versions 2-L..5-L) QR matrix in Byte Mode with Mask Pattern 0.
     """
-    grid_size = 25
-    utf8_bytes = list(str(text or "050-0000000").encode("utf-8"))[:32]
+    full_bytes = list(
+        str(text or "https://www.bitpay.co.il/app/me/0500000000").encode("utf-8")
+    )
+    spec = next(
+        (s for s in _QR_VERSION_SPECS if len(full_bytes) <= s["max_bytes"]),
+        _QR_VERSION_SPECS[-1],
+    )
+    grid_size = spec["grid_size"]
+    total_data_cw = spec["data_codewords"]
+    total_ecc_cw = spec["ecc_codewords"]
+    utf8_bytes = full_bytes[: spec["max_bytes"]]
 
-    # 1. Encode 34 data codewords in Byte Mode (0100)
+    # 1. Encode data codewords in Byte Mode (0100)
     bits: list[int] = [0, 1, 0, 0]
     for i in range(8):
         bits.append((len(utf8_bytes) >> (7 - i)) & 1)
     for b in utf8_bytes:
         for i in range(8):
             bits.append((b >> (7 - i)) & 1)
-    for _ in range(min(4, 34 * 8 - len(bits))):
+    for _ in range(min(4, total_data_cw * 8 - len(bits))):
         bits.append(0)
     while len(bits) % 8 != 0:
         bits.append(0)
@@ -139,21 +185,21 @@ def build_iso_qr_v2l_matrix(text: str) -> list[list[bool]]:
 
     pad_bytes = [0xEC, 0x11]
     pad_idx = 0
-    while len(data_codewords) < 34:
+    while len(data_codewords) < total_data_cw:
         data_codewords.append(pad_bytes[pad_idx % 2])
         pad_idx += 1
 
-    # 2. Compute 10 Reed-Solomon ECC codewords over GF(2^8)
-    ecc_codewords = _rs_encode_10(data_codewords)
+    # 2. Compute Reed-Solomon ECC codewords over GF(2^8)
+    ecc_codewords = _rs_encode(data_codewords, total_ecc_cw)
     all_codewords = data_codewords + ecc_codewords
 
     module_bits: list[int] = []
     for cw in all_codewords:
         for i in range(8):
             module_bits.append((cw >> (7 - i)) & 1)
-    module_bits.extend([0] * 7)  # 7 remainder bits for Version 2
+    module_bits.extend([0] * 7)  # 7 remainder bits for Versions 2..5
 
-    # 3. Place function patterns on 25x25 grid
+    # 3. Place function patterns on grid_size x grid_size grid
     matrix = [[False] * grid_size for _ in range(grid_size)]
     is_function = [[False] * grid_size for _ in range(grid_size)]
 
@@ -173,10 +219,11 @@ def build_iso_qr_v2l_matrix(text: str) -> list[list[bool]]:
     place_finder(0, grid_size - 7)
     place_finder(grid_size - 7, 0)
 
-    # 5x5 Alignment pattern at (16..20, 16..20) centered at (18, 18)
+    # 5x5 Alignment pattern centered at (grid_size - 7, grid_size - 7)
+    align_start = grid_size - 9
     for dr in range(5):
         for dc in range(5):
-            r, c = 16 + dr, 16 + dc
+            r, c = align_start + dr, align_start + dc
             is_function[r][c] = True
             matrix[r][c] = dr in (0, 4) or dc in (0, 4) or (dr == 2 and dc == 2)
 
@@ -187,9 +234,9 @@ def build_iso_qr_v2l_matrix(text: str) -> list[list[bool]]:
         is_function[i][6] = True
         matrix[i][6] = i % 2 == 0
 
-    # Dark module at (4*V + 9, 8) = (17, 8)
-    is_function[17][8] = True
-    matrix[17][8] = True
+    # Dark module at (4*V + 9, 8) = (grid_size - 8, 8)
+    is_function[grid_size - 8][8] = True
+    matrix[grid_size - 8][8] = True
 
     # Format information for Level L (01) + Mask 0 (000) -> BCH(15,5) masked value 0x77C4
     format_word = 0x77C4
@@ -198,8 +245,21 @@ def build_iso_qr_v2l_matrix(text: str) -> list[list[bool]]:
         (7, 8), (5, 8), (4, 8), (3, 8), (2, 8), (1, 8), (0, 8),
     ]
     copy2_coords = [
-        (24, 8), (23, 8), (22, 8), (21, 8), (20, 8), (19, 8), (18, 8),
-        (8, 17), (8, 18), (8, 19), (8, 20), (8, 21), (8, 22), (8, 23), (8, 24),
+        (grid_size - 1, 8),
+        (grid_size - 2, 8),
+        (grid_size - 3, 8),
+        (grid_size - 4, 8),
+        (grid_size - 5, 8),
+        (grid_size - 6, 8),
+        (grid_size - 7, 8),
+        (8, grid_size - 8),
+        (8, grid_size - 7),
+        (8, grid_size - 6),
+        (8, grid_size - 5),
+        (8, grid_size - 4),
+        (8, grid_size - 3),
+        (8, grid_size - 2),
+        (8, grid_size - 1),
     ]
     for idx in range(15):
         bit_val = bool((format_word >> (14 - idx)) & 1)
@@ -237,14 +297,14 @@ def build_iso_qr_v2l_matrix(text: str) -> list[list[bool]]:
 
 
 def generate_qr_data_url(text: str, size: int = 240) -> str:
-    grid_size = 25
     matrix = build_iso_qr_v2l_matrix(text)
+    grid_size = len(matrix)
 
     dark = b"\x1c\x1c\x1c"
     light = b"\xff\xff\xff"
-    scale = 7
-    margin = 32  # 32 + 25*7 + 33 = 240
+    scale = max(1, size // (grid_size + 8))
     qr_span = grid_size * scale
+    margin = (size - qr_span) // 2
     rows: list[bytes] = []
     white_row = light * size
     right_pad = size - margin - qr_span

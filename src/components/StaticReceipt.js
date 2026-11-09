@@ -2,14 +2,12 @@
  * StaticReceipt Component — Post-checkout confirmation screen with Order #101,
  * 240x240 ISO/IEC 18004 Bit QR Code, and Copy Phone button.
  */
-import { generateQrDataUrl } from "../utils/qr.js";
+import { buildBitPaymentUrl, generateQrDataUrl } from "../utils/qr.js";
 
 export function mountStaticReceipt(container, order, store, onBackToMenu) {
   const bitPhone = store?.bitPhone || "050-0000000";
-  const bitUrl = bitPhone.startsWith("http")
-    ? bitPhone
-    : `https://www.bitpay.co.il/app/me/${encodeURIComponent(bitPhone.replace(/\D+/g, ""))}`;
-  const qrDataUrl = generateQrDataUrl(bitPhone, 240);
+  const bitUrl = buildBitPaymentUrl(bitPhone);
+  const qrDataUrl = generateQrDataUrl(bitUrl, 240);
   const orderNumber = order.number ?? order.orderNumber ?? 101;
   const totalNis = order.total ?? order.totalNis ?? 0;
   let copied = false;
@@ -77,6 +75,7 @@ export function mountStaticReceipt(container, order, store, onBackToMenu) {
                 height="240"
                 class="receipt-qr-img"
                 data-testid="receipt-qr-img"
+                data-qr-payload="${bitUrl}"
               />
             </a>
             <div class="copy-phone-row">

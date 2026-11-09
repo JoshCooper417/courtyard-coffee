@@ -395,6 +395,7 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
             orderNumberText: document.querySelector('[data-testid="receipt-order-number"]')?.textContent?.trim(),
             receiptTotalText: document.querySelector('[data-testid="receipt-total"]')?.textContent?.trim(),
             qrLinkHref: qrLink?.getAttribute('href') || null,
+            qrPayloadAttr: qrImg?.getAttribute('data-qr-payload') || null,
             qrSrcPrefix: qrImg?.getAttribute('src')?.slice(0, 22) || '',
             qrNaturalWidth: qrImg?.naturalWidth || 0,
             qrNaturalHeight: qrImg?.naturalHeight || 0,

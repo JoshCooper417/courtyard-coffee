@@ -8,9 +8,21 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from api.db import create_order, get_store_state, init_db, save_store_state
-from api.utils import build_hebrew_whatsapp_url, format_wa_phone, generate_qr_data_url
+from api.utils import (
+    build_bit_payment_url,
+    build_hebrew_whatsapp_url,
+    format_wa_phone,
+    generate_qr_data_url,
+)
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+
+_QR_TOTAL_AND_ECC_BY_GRID = {
+    25: (44, 10),
+    29: (70, 15),
+    33: (100, 20),
+    37: (134, 26),
+}
 
 
 def _decode_png_and_verify_iso_qr(data_url: str) -> dict:
@@ -39,9 +51,31 @@ def _decode_png_and_verify_iso_qr(data_url: str) -> dict:
         val = decompressed[row_start + 1 + x * bpp]
         return val < 128
 
-    grid_size = 25
-    scale = 7
-    margin = 32
+    # Auto-detect margin, scale, and grid_size from top-left and top-right finder patterns
+    margin = 0
+    found = False
+    for y in range(height):
+        for x in range(width):
+            if is_dark_pixel(x, y):
+                margin = x
+                found = True
+                break
+        if found:
+            break
+
+    finder_run = 0
+    while margin + finder_run < width and is_dark_pixel(margin + finder_run, margin):
+        finder_run += 1
+    scale = max(1, finder_run // 7)
+
+    last_dark_x = margin
+    for x in range(width - 1, margin, -1):
+        if is_dark_pixel(x, margin):
+            last_dark_x = x
+            break
+    grid_size = round((last_dark_x - margin + 1) / scale)
+    total_cw, ecc_cw = _QR_TOTAL_AND_ECC_BY_GRID.get(grid_size, (44, 10))
+
     sampled = [
         [
             is_dark_pixel(margin + c * scale + scale // 2, margin + r * scale + scale // 2)
@@ -55,8 +89,21 @@ def _decode_png_and_verify_iso_qr(data_url: str) -> dict:
         (7, 8), (5, 8), (4, 8), (3, 8), (2, 8), (1, 8), (0, 8),
     ]
     copy2_coords = [
-        (24, 8), (23, 8), (22, 8), (21, 8), (20, 8), (19, 8), (18, 8),
-        (8, 17), (8, 18), (8, 19), (8, 20), (8, 21), (8, 22), (8, 23), (8, 24),
+        (grid_size - 1, 8),
+        (grid_size - 2, 8),
+        (grid_size - 3, 8),
+        (grid_size - 4, 8),
+        (grid_size - 5, 8),
+        (grid_size - 6, 8),
+        (grid_size - 7, 8),
+        (8, grid_size - 8),
+        (8, grid_size - 7),
+        (8, grid_size - 6),
+        (8, grid_size - 5),
+        (8, grid_size - 4),
+        (8, grid_size - 3),
+        (8, grid_size - 2),
+        (8, grid_size - 1),
     ]
     fmt1 = 0
     fmt2 = 0
@@ -66,19 +113,20 @@ def _decode_png_and_verify_iso_qr(data_url: str) -> dict:
         fmt2 = (fmt2 << 1) | (1 if sampled[r][c] else 0)
 
     is_func = [[False] * grid_size for _ in range(grid_size)]
-    for r0, c0 in ((0, 0), (0, 18), (18, 0)):
+    for r0, c0 in ((0, 0), (0, grid_size - 7), (grid_size - 7, 0)):
         for dr in range(-1, 8):
             for dc in range(-1, 8):
                 r, c = r0 + dr, c0 + dc
                 if 0 <= r < grid_size and 0 <= c < grid_size:
                     is_func[r][c] = True
+    align_start = grid_size - 9
     for dr in range(5):
         for dc in range(5):
-            is_func[16 + dr][16 + dc] = True
+            is_func[align_start + dr][align_start + dc] = True
     for i in range(8, grid_size - 8):
         is_func[6][i] = True
         is_func[i][6] = True
-    is_func[17][8] = True
+    is_func[grid_size - 8][8] = True
     for r, c in copy1_coords + copy2_coords:
         is_func[r][c] = True
 
@@ -100,7 +148,7 @@ def _decode_png_and_verify_iso_qr(data_url: str) -> dict:
         col -= 2
 
     codewords = []
-    for i in range(0, 44 * 8, 8):
+    for i in range(0, total_cw * 8, 8):
         byte_val = 0
         for b in unmasked_bits[i : i + 8]:
             byte_val = (byte_val << 1) | b
@@ -124,7 +172,7 @@ def _decode_png_and_verify_iso_qr(data_url: str) -> dict:
         return gf_exp[gf_log[a] + gf_log[b]]
 
     syndromes = []
-    for i in range(10):
+    for i in range(ecc_cw):
         syn = 0
         root = gf_exp[i]
         for cw in codewords:
@@ -150,6 +198,7 @@ def _decode_png_and_verify_iso_qr(data_url: str) -> dict:
     return {
         "width": width,
         "height": height,
+        "grid_size": grid_size,
         "format1": fmt1,
         "format2": fmt2,
         "syndromes": syndromes,
@@ -266,11 +315,29 @@ class TestMilestone1And2Utils(unittest.TestCase):
         self.assertTrue(data_url.startswith("data:image/png;base64,"))
         decoded = _decode_png_and_verify_iso_qr(data_url)
         self.assertEqual((decoded["width"], decoded["height"]), (240, 240))
+        self.assertEqual(decoded["grid_size"], 25)
         self.assertEqual(decoded["format1"], 0x77C4)
         self.assertEqual(decoded["format2"], 0x77C4)
         self.assertEqual(decoded["syndromes"], [0] * 10)
         self.assertEqual(decoded["mode"], 0b0100)
         self.assertEqual(decoded["decoded_text"], "050-0000000")
+
+        # Verify full Bit payment link (42 bytes -> Version 3-L 29x29) encodes without truncation
+        bit_url = build_bit_payment_url("054-1234567")
+        self.assertEqual(bit_url, "https://www.bitpay.co.il/app/me/0541234567")
+        self.assertEqual(
+            build_bit_payment_url("+972 52-765-4321"),
+            "https://www.bitpay.co.il/app/me/0527654321",
+        )
+        bit_qr_data_url = generate_qr_data_url(bit_url)
+        decoded_bit = _decode_png_and_verify_iso_qr(bit_qr_data_url)
+        self.assertEqual((decoded_bit["width"], decoded_bit["height"]), (240, 240))
+        self.assertEqual(decoded_bit["grid_size"], 29)
+        self.assertEqual(decoded_bit["format1"], 0x77C4)
+        self.assertEqual(decoded_bit["format2"], 0x77C4)
+        self.assertEqual(decoded_bit["syndromes"], [0] * 15)
+        self.assertEqual(decoded_bit["mode"], 0b0100)
+        self.assertEqual(decoded_bit["decoded_text"], "https://www.bitpay.co.il/app/me/0541234567")
 
     def test_js_utility_modules_contract(self):
         wa_js = (ROOT_DIR / "src" / "utils" / "wa.js").read_text(encoding="utf-8")
@@ -283,6 +350,8 @@ class TestMilestone1And2Utils(unittest.TestCase):
         self.assertIn("IHDR", qr_js)
         self.assertIn("0x77c4", qr_js)
         self.assertIn("rsEncode10", qr_js)
+        self.assertIn("buildBitPaymentUrl", qr_js)
+        self.assertIn("https://www.bitpay.co.il/app/me/", qr_js)
 
     def test_cuj01_cart_keying_and_inline_stepper_contract(self):
         state_js = (ROOT_DIR / "src" / "state.js").read_text(encoding="utf-8")

@@ -1,9 +1,9 @@
 /**
- * Pure-JS ISO/IEC 18004 Version 2-L (25x25 modules, Byte Mode, Mask 0, 10 RS ECC codewords)
- * 240x240 uncompressed binary PNG QR Data URL generator.
+ * Pure-JS ISO/IEC 18004 Level-L (Versions 2-L..5-L, Byte Mode, Mask 0, Reed-Solomon ECC)
+ * 240x240 uncompressed binary PNG QR Data URL generator and Bit payment link builder.
  * Produces a valid `data:image/png;base64,...` with PNG signature, IHDR (240x240),
  * zlib store block, Adler32, CRC32, and IEND so <img> renders natively at 240x240
- * and scans in standard QR decoders.
+ * and scans in standard QR decoders without truncating full Bit payment URLs.
  */
 
 const CRC_TABLE = (() => {
@@ -71,23 +71,26 @@ const { GF_EXP, GF_LOG, RS_GEN_10 } = (() => {
     exp[i] = exp[i - 255];
   }
 
-  function gfMul(a, b) {
+  function gfMulInner(a, b) {
     if (a === 0 || b === 0) return 0;
     return exp[log[a] + log[b]];
   }
 
-  let gen = [1];
-  for (let i = 0; i < 10; i++) {
-    const next = new Array(gen.length + 1).fill(0);
-    const root = exp[i];
-    for (let j = 0; j < gen.length; j++) {
-      next[j] ^= gen[j];
-      next[j + 1] ^= gfMul(gen[j], root);
+  function buildGen(degree) {
+    let gen = [1];
+    for (let i = 0; i < degree; i++) {
+      const next = new Array(gen.length + 1).fill(0);
+      const root = exp[i];
+      for (let j = 0; j < gen.length; j++) {
+        next[j] ^= gen[j];
+        next[j + 1] ^= gfMulInner(gen[j], root);
+      }
+      gen = next;
     }
-    gen = next;
+    return gen;
   }
 
-  return { GF_EXP: exp, GF_LOG: log, RS_GEN_10: gen };
+  return { GF_EXP: exp, GF_LOG: log, RS_GEN_10: buildGen(10) };
 })();
 
 function gfMul(a, b) {
@@ -95,27 +98,88 @@ function gfMul(a, b) {
   return GF_EXP[GF_LOG[a] + GF_LOG[b]];
 }
 
-function rsEncode10(dataCodewords) {
-  const ecc = new Array(10).fill(0);
+const RS_POLY_CACHE = { 10: RS_GEN_10 };
+
+function getRsGenPoly(degree) {
+  if (RS_POLY_CACHE[degree]) return RS_POLY_CACHE[degree];
+  let gen = [1];
+  for (let i = 0; i < degree; i++) {
+    const next = new Array(gen.length + 1).fill(0);
+    const root = GF_EXP[i];
+    for (let j = 0; j < gen.length; j++) {
+      next[j] ^= gen[j];
+      next[j + 1] ^= gfMul(gen[j], root);
+    }
+    gen = next;
+  }
+  RS_POLY_CACHE[degree] = gen;
+  return gen;
+}
+
+export function rsEncode(dataCodewords, eccCount = 10) {
+  const gen = getRsGenPoly(eccCount);
+  const ecc = new Array(eccCount).fill(0);
   for (const b of dataCodewords) {
     const factor = b ^ ecc[0];
     ecc.shift();
     ecc.push(0);
     if (factor !== 0) {
-      for (let j = 0; j < 10; j++) {
-        ecc[j] ^= gfMul(RS_GEN_10[j + 1], factor);
+      for (let j = 0; j < eccCount; j++) {
+        ecc[j] ^= gfMul(gen[j + 1], factor);
       }
     }
   }
   return ecc;
 }
 
-export function buildQrMatrix(text) {
-  const gridSize = 25;
-  const encoder = new TextEncoder();
-  const utf8Bytes = Array.from(encoder.encode(String(text || "050-0000000"))).slice(0, 32);
+export function rsEncode10(dataCodewords) {
+  return rsEncode(dataCodewords, 10);
+}
 
-  // 1. Encode 34 data codewords in Byte Mode (0100)
+// Single-block ISO/IEC 18004 Level-L version specs (Versions 2-L through 5-L)
+const QR_VERSION_SPECS = [
+  { version: 2, gridSize: 25, dataCodewords: 34, eccCodewords: 10, maxBytes: 32 },
+  { version: 3, gridSize: 29, dataCodewords: 55, eccCodewords: 15, maxBytes: 53 },
+  { version: 4, gridSize: 33, dataCodewords: 80, eccCodewords: 20, maxBytes: 78 },
+  { version: 5, gridSize: 37, dataCodewords: 108, eccCodewords: 26, maxBytes: 106 },
+];
+
+export function formatBitPhoneDigits(rawBitPhone) {
+  let digits = String(rawBitPhone || "050-0000000").replace(/\D+/g, "");
+  if (!digits) {
+    return "0500000000";
+  }
+  if (digits.startsWith("00972") && digits.length >= 14) {
+    digits = "0" + digits.slice(5);
+  } else if (digits.startsWith("972") && digits.length >= 11) {
+    digits = "0" + digits.slice(3);
+  } else if (digits.length === 9 && digits.startsWith("5")) {
+    digits = "0" + digits;
+  }
+  return digits;
+}
+
+export function buildBitPaymentUrl(rawBitPhone) {
+  const trimmed = String(rawBitPhone || "050-0000000").trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  const digits = formatBitPhoneDigits(trimmed);
+  return `https://www.bitpay.co.il/app/me/${encodeURIComponent(digits)}`;
+}
+
+export function buildQrMatrix(text) {
+  const encoder = new TextEncoder();
+  const fullBytes = Array.from(
+    encoder.encode(String(text || "https://www.bitpay.co.il/app/me/0500000000"))
+  );
+  const spec =
+    QR_VERSION_SPECS.find((s) => fullBytes.length <= s.maxBytes) ||
+    QR_VERSION_SPECS[QR_VERSION_SPECS.length - 1];
+  const { version, gridSize, dataCodewords: totalDataCw, eccCodewords: totalEccCw, maxBytes } = spec;
+  const utf8Bytes = fullBytes.slice(0, maxBytes);
+
+  // 1. Encode data codewords in Byte Mode (0100)
   const bits = [0, 1, 0, 0];
   for (let i = 0; i < 8; i++) {
     bits.push((utf8Bytes.length >> (7 - i)) & 1);
@@ -125,7 +189,7 @@ export function buildQrMatrix(text) {
       bits.push((b >> (7 - i)) & 1);
     }
   }
-  const maxDataBits = 34 * 8;
+  const maxDataBits = totalDataCw * 8;
   const termCount = Math.min(4, maxDataBits - bits.length);
   for (let i = 0; i < termCount; i++) {
     bits.push(0);
@@ -145,13 +209,13 @@ export function buildQrMatrix(text) {
 
   const padBytes = [0xec, 0x11];
   let padIdx = 0;
-  while (dataCodewords.length < 34) {
+  while (dataCodewords.length < totalDataCw) {
     dataCodewords.push(padBytes[padIdx % 2]);
     padIdx++;
   }
 
-  // 2. Compute 10 Reed-Solomon ECC codewords
-  const eccCodewords = rsEncode10(dataCodewords);
+  // 2. Compute Reed-Solomon ECC codewords
+  const eccCodewords = rsEncode(dataCodewords, totalEccCw);
   const allCodewords = dataCodewords.concat(eccCodewords);
 
   const moduleBits = [];
@@ -161,10 +225,10 @@ export function buildQrMatrix(text) {
     }
   }
   for (let i = 0; i < 7; i++) {
-    moduleBits.push(0); // 7 remainder bits for Version 2
+    moduleBits.push(0); // 7 remainder bits for Versions 2..5
   }
 
-  // 3. Place function patterns on 25x25 grid
+  // 3. Place function patterns on gridSize x gridSize grid
   const matrix = Array.from({ length: gridSize }, () => Array(gridSize).fill(false));
   const isFunction = Array.from({ length: gridSize }, () => Array(gridSize).fill(false));
 
@@ -189,11 +253,12 @@ export function buildQrMatrix(text) {
   placeFinder(0, gridSize - 7);
   placeFinder(gridSize - 7, 0);
 
-  // 5x5 Alignment pattern at (16..20, 16..20) centered at (18, 18)
+  // 5x5 Alignment pattern centered at (gridSize - 7, gridSize - 7)
+  const alignStart = gridSize - 9;
   for (let dr = 0; dr < 5; dr++) {
     for (let dc = 0; dc < 5; dc++) {
-      const r = 16 + dr;
-      const c = 16 + dc;
+      const r = alignStart + dr;
+      const c = alignStart + dc;
       isFunction[r][c] = true;
       matrix[r][c] = dr === 0 || dr === 4 || dc === 0 || dc === 4 || (dr === 2 && dc === 2);
     }
@@ -207,9 +272,9 @@ export function buildQrMatrix(text) {
     matrix[i][6] = i % 2 === 0;
   }
 
-  // Dark module at (17, 8)
-  isFunction[17][8] = true;
-  matrix[17][8] = true;
+  // Dark module at (4 * version + 9, 8) = (gridSize - 8, 8)
+  isFunction[gridSize - 8][8] = true;
+  matrix[gridSize - 8][8] = true;
 
   // Format information for Level L (01) + Mask 0 (000) -> 0x77C4
   const formatWord = 0x77c4;
@@ -218,8 +283,21 @@ export function buildQrMatrix(text) {
     [7, 8], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
   ];
   const copy2Coords = [
-    [24, 8], [23, 8], [22, 8], [21, 8], [20, 8], [19, 8], [18, 8],
-    [8, 17], [8, 18], [8, 19], [8, 20], [8, 21], [8, 22], [8, 23], [8, 24],
+    [gridSize - 1, 8],
+    [gridSize - 2, 8],
+    [gridSize - 3, 8],
+    [gridSize - 4, 8],
+    [gridSize - 5, 8],
+    [gridSize - 6, 8],
+    [gridSize - 7, 8],
+    [8, gridSize - 8],
+    [8, gridSize - 7],
+    [8, gridSize - 6],
+    [8, gridSize - 5],
+    [8, gridSize - 4],
+    [8, gridSize - 3],
+    [8, gridSize - 2],
+    [8, gridSize - 1],
   ];
   for (let idx = 0; idx < 15; idx++) {
     const bitVal = Boolean((formatWord >> (14 - idx)) & 1);
@@ -253,7 +331,7 @@ export function buildQrMatrix(text) {
     col -= 2;
   }
 
-  return { matrix, gridSize, isFunction };
+  return { matrix, gridSize, isFunction, version };
 }
 
 function uint8ToBase64(bytes) {
@@ -273,9 +351,9 @@ export function generateQrDataUrl(text, size = 240) {
   // 8-bit grayscale (colorType = 0): each scanline has 1 filter byte (0) + width bytes
   const rowStride = 1 + width;
   const rawScanlines = new Uint8Array(height * rowStride);
-  const scale = 7;
-  const margin = 32; // 32 + 25*7 + 33 = 240
+  const scale = Math.max(1, Math.floor(size / (gridSize + 8)));
   const qrSpan = gridSize * scale;
+  const margin = Math.floor((size - qrSpan) / 2);
 
   for (let y = 0; y < height; y++) {
     const rowOffset = y * rowStride;
