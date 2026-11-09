@@ -426,6 +426,8 @@ export function mountKdsRoute(container, initialStore) {
         if (typeof window !== "undefined") {
           window.__lastCopiedText = text;
         }
+        copiedTicketNums.add(num);
+        renderOrders();
         try {
           if (navigator.clipboard && navigator.clipboard.writeText) {
             await navigator.clipboard.writeText(text);
@@ -433,8 +435,6 @@ export function mountKdsRoute(container, initialStore) {
         } catch (_err) {
           // Fallback already stored on window.__lastCopiedText
         }
-        copiedTicketNums.add(num);
-        renderOrders();
       });
     });
 

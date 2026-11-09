@@ -146,11 +146,15 @@ class CDPClient:
         )
 
     def navigate_and_wait(self, url: str, wait_selector: str, timeout: float = 10.0):
+        try:
+            self.evaluate("window.__navPending = true; if (document.body) document.body.innerHTML = '';")
+        except Exception:
+            pass
         self.call("Page.navigate", {"url": url})
         deadline = time.time() + timeout
         while time.time() < deadline:
             ready = self.evaluate(
-                f"Boolean(document.readyState === 'complete' && document.querySelector({json.dumps(wait_selector)}))"
+                f"Boolean(!window.__navPending && document.readyState === 'complete' && document.querySelector({json.dumps(wait_selector)}))"
             )
             if ready:
                 self.evaluate(
@@ -463,6 +467,394 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
             "nextOrderNumberAfter101": int(next_num_out),
         },
         "screenshots": [s1, s2, s3, s4, s5, s6, s7],
+    }
+
+
+def run_m3_cujs(cdp: CDPClient, report: dict):
+    """
+    Executes Milestone 3 Admin 4-Digit PIN Gate & Barista KDS CUJ-04, CUJ-05, and CUJ-06
+    against the live database containing Order #101 from CUJ-03, capturing all 8 required
+    screenshots and recording full DOM, runtime, network, and SQLite telemetry.
+    """
+    db_file = os.path.join(ROOT_DIR, "db", "data.db")
+
+    # -------------------------------------------------------------------------
+    # CUJ-04: Admin 4-Digit PIN Gate & Persistence (/admin/kds & /admin/menu)
+    # -------------------------------------------------------------------------
+    cdp.set_viewport(1280, 800, mobile=False)
+    cdp.evaluate("localStorage.clear()")
+    cdp.navigate_and_wait(f"http://127.0.0.1:{SERVER_PORT}/admin/kds", '[data-testid="pin-gate-modal"]')
+
+    cuj04_locked = cdp.evaluate(
+        """
+        (() => {
+          return {
+            htmlDir: document.documentElement.getAttribute('dir'),
+            pinModalPresent: Boolean(document.querySelector('[data-testid="pin-gate-modal"]')),
+            kdsViewPresent: Boolean(document.querySelector('[data-testid="kds-view"]')),
+            errorPresent: Boolean(document.querySelector('[data-testid="pin-error"]')),
+            storedPin: localStorage.getItem('adminPin')
+          };
+        })()
+        """
+    )
+    s_cuj04_1 = os.path.join(SCREENSHOTS_DIR, "cuj04_pin_modal_locked.png")
+    cdp.screenshot(s_cuj04_1)
+
+    cuj04_error = cdp.evaluate(
+        """
+        (() => {
+          const input = document.querySelector('[data-testid="pin-input"]');
+          const form = document.querySelector('#pin-gate-form');
+          input.value = '9999';
+          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+          const modalCard = document.querySelector('.modal-card');
+          return {
+            pinModalPresent: Boolean(document.querySelector('[data-testid="pin-gate-modal"]')),
+            kdsViewPresent: Boolean(document.querySelector('[data-testid="kds-view"]')),
+            hasErrorClass: Boolean(modalCard?.classList.contains('has-error')),
+            errorText: document.querySelector('[data-testid="pin-error"]')?.textContent?.trim() || null,
+            storedPin: localStorage.getItem('adminPin')
+          };
+        })()
+        """
+    )
+    s_cuj04_2 = os.path.join(SCREENSHOTS_DIR, "cuj04_pin_modal_error.png")
+    cdp.screenshot(s_cuj04_2)
+
+    cuj04_unlocked = cdp.evaluate(
+        """
+        (async () => {
+          window.__chimeCount = 0;
+          const input = document.querySelector('[data-testid="pin-input"]');
+          const form = document.querySelector('#pin-gate-form');
+          input.value = '1234';
+          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+          for (let i = 0; i < 60; i++) {
+            if (document.querySelector('[data-testid="kds-view"]') && document.querySelector('[data-testid="kds-ticket-101"]')) {
+              break;
+            }
+            await new Promise(r => setTimeout(r, 50));
+          }
+          return {
+            htmlDir: document.documentElement.getAttribute('dir'),
+            pinModalPresent: Boolean(document.querySelector('[data-testid="pin-gate-modal"]')),
+            kdsViewPresent: Boolean(document.querySelector('[data-testid="kds-view"]')),
+            ticket101Loaded: Boolean(document.querySelector('[data-testid="kds-ticket-101"]')),
+            storedPin: localStorage.getItem('adminPin'),
+            chimeCountOnInitialLoad: window.__chimeCount || 0
+          };
+        })()
+        """
+    )
+    s_cuj04_3 = os.path.join(SCREENSHOTS_DIR, "cuj04_kds_unlocked.png")
+    cdp.screenshot(s_cuj04_3)
+
+    # Verify reload on /admin/kds and navigation to /admin/menu bypass PIN modal automatically
+    cdp.navigate_and_wait(f"http://127.0.0.1:{SERVER_PORT}/admin/kds", '[data-testid="kds-view"]')
+    reloaded_kds_check = cdp.evaluate(
+        """
+        ({
+          pinModalPresent: Boolean(document.querySelector('[data-testid="pin-gate-modal"]')),
+          kdsViewPresent: Boolean(document.querySelector('[data-testid="kds-view"]')),
+          storedPin: localStorage.getItem('adminPin')
+        })
+        """
+    )
+    cdp.navigate_and_wait(f"http://127.0.0.1:{SERVER_PORT}/admin/menu", '[data-testid="admin-menu-view"]')
+    admin_menu_bypass_check = cdp.evaluate(
+        """
+        ({
+          pinModalPresent: Boolean(document.querySelector('[data-testid="pin-gate-modal"]')),
+          adminMenuViewPresent: Boolean(document.querySelector('[data-testid="admin-menu-view"]')),
+          storedPin: localStorage.getItem('adminPin')
+        })
+        """
+    )
+
+    # -------------------------------------------------------------------------
+    # CUJ-05: Barista KDS — Audio Chime & 2-Tap Ticket Lifecycle (/admin/kds)
+    # -------------------------------------------------------------------------
+    cdp.navigate_and_wait(f"http://127.0.0.1:{SERVER_PORT}/admin/kds", '[data-testid="kds-view"]')
+    # Wait for initial ticket #101 render, then arm __chimeCount = 0 + __resetKdsSeenOrders()
+    # and wait for the real 2000ms setInterval poll to fire playGentleChime()
+    cdp.evaluate(
+        """
+        (async () => {
+          for (let i = 0; i < 40; i++) {
+            if (document.querySelector('[data-testid="kds-ticket-101"]')) break;
+            await new Promise(r => setTimeout(r, 50));
+          }
+          window.__chimeCount = 0;
+          if (typeof window.__resetKdsSeenOrders === 'function') {
+            window.__resetKdsSeenOrders();
+          }
+          window.open = (url) => {
+            window.__lastWindowOpenUrl = url;
+            return null;
+          };
+          for (let i = 0; i < 35; i++) {
+            if ((window.__chimeCount || 0) >= 1) break;
+            await new Promise(r => setTimeout(r, 100));
+          }
+        })()
+        """
+    )
+
+    s_cuj05_1 = os.path.join(SCREENSHOTS_DIR, "cuj05_kds_active_ticket.png")
+    cdp.screenshot(s_cuj05_1)
+
+    cuj05_active = cdp.evaluate(
+        """
+        (() => {
+          const ticket = document.querySelector('[data-testid="kds-ticket-101"]');
+          const notifyBtn = document.querySelector('[data-testid="notify-wa-btn-101"]');
+          const drawerToggle = document.querySelector('[data-testid="kds-completed-drawer-toggle"]');
+          const ticketRect = ticket?.getBoundingClientRect();
+          const notifyRect = notifyBtn?.getBoundingClientRect();
+          const drawerRect = drawerToggle?.getBoundingClientRect();
+
+          const itemTitles = Array.from(ticket?.querySelectorAll('.kds-item-title') || []).map(el => el.textContent.trim());
+          const tagPills = Array.from(ticket?.querySelectorAll('.kds-tag-pill') || []).map(el => el.textContent.trim());
+          const noteText = document.querySelector('[data-testid="kds-ticket-note-101"]')?.textContent?.trim() || null;
+          const waPreviewEl = document.querySelector('[data-testid="wa-preview-101"]');
+          const copyBtn = document.querySelector('[data-testid="copy-wa-text-101"]');
+          const copyBtnTextBefore = copyBtn?.textContent?.trim();
+          if (copyBtn) copyBtn.click();
+          const copyBtnTextAfter = document.querySelector('[data-testid="copy-wa-text-101"]')?.textContent?.trim();
+
+          return {
+            chimeCountAfter2sPoll: window.__chimeCount || 0,
+            ticketPresent: Boolean(ticket),
+            ticketNumberText: document.querySelector('[data-testid="kds-ticket-number-101"]')?.textContent?.trim(),
+            ticketStatusText: document.querySelector('[data-testid="kds-ticket-status-101"]')?.textContent?.trim(),
+            ticketTotalText: document.querySelector('[data-testid="kds-ticket-total-101"]')?.textContent?.trim(),
+            itemTitles,
+            tagPills,
+            noteText,
+            waPreviewDir: waPreviewEl?.getAttribute('dir'),
+            waPreviewText: waPreviewEl?.textContent?.trim(),
+            copyBtnTextBefore,
+            copyBtnTextAfter,
+            lastCopiedWaText: window.__lastCopiedText || null,
+            notifyBtnPresent: Boolean(notifyBtn),
+            notifyBtnText: notifyBtn?.textContent?.trim(),
+            doneBtnPresent: Boolean(document.querySelector('[data-testid="done-order-btn-101"]')),
+            ticketBottomPx: ticketRect ? Math.round(ticketRect.bottom) : null,
+            notifyBtnBottomPx: notifyRect ? Math.round(notifyRect.bottom) : null,
+            drawerToggleBottomPx: drawerRect ? Math.round(drawerRect.bottom) : null,
+            ticketFullyVisibleIn800pxViewport: Boolean(ticketRect && ticketRect.bottom <= 800)
+          };
+        })()
+        """
+    )
+
+    # Tap 1: Click "Notify on WhatsApp" on Ticket #101
+    cuj05_notified = cdp.evaluate(
+        """
+        (async () => {
+          const notifyBtn = document.querySelector('[data-testid="notify-wa-btn-101"]');
+          notifyBtn.click();
+          for (let i = 0; i < 60; i++) {
+            if (document.querySelector('[data-testid="done-order-btn-101"]')) break;
+            await new Promise(r => setTimeout(r, 50));
+          }
+          const ticket = document.querySelector('[data-testid="kds-ticket-101"]');
+          return {
+            ticketNotifiedClass: Boolean(ticket?.classList.contains('notified')),
+            ticketStatusText: document.querySelector('[data-testid="kds-ticket-status-101"]')?.textContent?.trim(),
+            notifyBtnPresent: Boolean(document.querySelector('[data-testid="notify-wa-btn-101"]')),
+            doneBtnPresent: Boolean(document.querySelector('[data-testid="done-order-btn-101"]')),
+            doneBtnText: document.querySelector('[data-testid="done-order-btn-101"]')?.textContent?.trim(),
+            lastWindowOpenUrl: window.__lastWindowOpenUrl || null
+          };
+        })()
+        """
+    )
+    s_cuj05_2 = os.path.join(SCREENSHOTS_DIR, "cuj05_kds_ticket_notified.png")
+    cdp.screenshot(s_cuj05_2)
+
+    sqlite_after_tap1 = subprocess.check_output(
+        [
+            "/usr/bin/sqlite3",
+            db_file,
+            "SELECT isNotified, isDone FROM orders WHERE number = 101;",
+        ],
+        text=True,
+    ).strip()
+
+    # Tap 2: Click "Done / Pick-up" on Ticket #101 & Open Completed Drawer
+    cuj05_completed = cdp.evaluate(
+        """
+        (async () => {
+          const doneBtn = document.querySelector('[data-testid="done-order-btn-101"]');
+          doneBtn.click();
+          for (let i = 0; i < 60; i++) {
+            if (!document.querySelector('[data-testid="kds-ticket-101"]')) break;
+            await new Promise(r => setTimeout(r, 50));
+          }
+          const drawerToggle = document.querySelector('[data-testid="kds-completed-drawer-toggle"]');
+          if (drawerToggle) drawerToggle.click();
+          const completedCard = document.querySelector('[data-testid="completed-ticket-101"]');
+          return {
+            activeTicket101Present: Boolean(document.querySelector('[data-testid="kds-ticket-101"]')),
+            emptyQueueCardPresent: Boolean(document.querySelector('[data-testid="kds-empty-state"]')),
+            drawerToggleText: document.querySelector('[data-testid="kds-completed-drawer-toggle"]')?.textContent?.trim(),
+            drawerPresent: Boolean(document.querySelector('[data-testid="kds-completed-drawer"]')),
+            completedTicket101Present: Boolean(completedCard),
+            completedTicketText: completedCard?.textContent?.replace(/\\s+/g, ' ')?.trim() || null
+          };
+        })()
+        """
+    )
+    s_cuj05_3 = os.path.join(SCREENSHOTS_DIR, "cuj05_kds_completed_drawer.png")
+    cdp.screenshot(s_cuj05_3)
+
+    sqlite_after_tap2 = subprocess.check_output(
+        [
+            "/usr/bin/sqlite3",
+            db_file,
+            "SELECT isNotified, isDone FROM orders WHERE number = 101;",
+        ],
+        text=True,
+    ).strip()
+
+    # -------------------------------------------------------------------------
+    # CUJ-06: Barista KDS — Quick-86 Stock Toggling & Store Closed Banner
+    # -------------------------------------------------------------------------
+    cuj06_kds = cdp.evaluate(
+        """
+        (async () => {
+          const oatPill = document.querySelector('[data-testid="quick86-tag-tag-oat"]');
+          oatPill.click();
+          if (window.__lastStoreSavePromise) await window.__lastStoreSavePromise;
+
+          const croissantPill = document.querySelector('[data-testid="quick86-item-item-croissant"]');
+          croissantPill.click();
+          if (window.__lastStoreSavePromise) await window.__lastStoreSavePromise;
+
+          const openToggle = document.querySelector('[data-testid="kds-open-toggle"]');
+          openToggle.click();
+          if (window.__lastStoreSavePromise) await window.__lastStoreSavePromise;
+
+          const noteInput = document.querySelector('[data-testid="kds-closed-note-input"]');
+          noteInput.value = 'יצאנו להפסקת צהריים, נחזור ב-14:00';
+          noteInput.dispatchEvent(new Event('input', { bubbles: true }));
+          noteInput.dispatchEvent(new Event('change', { bubbles: true }));
+          noteInput.dispatchEvent(new Event('blur', { bubbles: true }));
+          if (window.__lastStoreSavePromise) await window.__lastStoreSavePromise;
+
+          const oatAfter = document.querySelector('[data-testid="quick86-tag-tag-oat"]');
+          const croissantAfter = document.querySelector('[data-testid="quick86-item-item-croissant"]');
+          return {
+            statusBadgeText: document.querySelector('[data-testid="kds-status-badge"]')?.textContent?.trim(),
+            openToggleBtnText: document.querySelector('[data-testid="kds-open-toggle"]')?.textContent?.trim(),
+            closedNoteInputValue: noteInput.value,
+            oatOutOfStockClass: Boolean(oatAfter?.classList.contains('out-of-stock')),
+            oatText: oatAfter?.textContent?.replace(/\\s+/g, ' ')?.trim(),
+            croissantOutOfStockClass: Boolean(croissantAfter?.classList.contains('out-of-stock')),
+            croissantText: croissantAfter?.textContent?.replace(/\\s+/g, ' ')?.trim()
+          };
+        })()
+        """
+    )
+    s_cuj06_1 = os.path.join(SCREENSHOTS_DIR, "cuj06_kds_86_and_closed.png")
+    cdp.screenshot(s_cuj06_1)
+
+    sqlite_cuj06_store = subprocess.check_output(
+        [
+            "/usr/bin/sqlite3",
+            db_file,
+            "SELECT json_extract(data, '$.isOpen'), json_extract(data, '$.closedNoteHe'), json_extract(data, '$.nextOrderNumber') FROM store_state;",
+        ],
+        text=True,
+    ).strip()
+
+    # Switch to Customer Storefront (390x844 mobile viewport) and inspect closed banner + 86'd items/tags
+    cdp.set_viewport(390, 844, mobile=True)
+    cdp.navigate_and_wait(f"http://127.0.0.1:{SERVER_PORT}/", '[data-testid="customer-storefront"]')
+    cuj06_customer = cdp.evaluate(
+        """
+        (() => {
+          // Click Cappuccino "+ הוסף" to open TagBottomSheet in read-only closed inspection mode
+          const addCapBtn = document.querySelector('[data-testid="add-item-item-cappuccino"]');
+          if (addCapBtn) addCapBtn.click();
+
+          const statusBadge = document.querySelector('[data-testid="store-status-badge"]');
+          const closedBanner = document.querySelector('[data-testid="closed-banner"]');
+          const croissantCard = document.querySelector('[data-testid="menu-card-item-croissant"]');
+          const croissantBtn = document.querySelector('[data-testid="add-item-item-croissant"]');
+          const tagSheet = document.querySelector('[data-testid="tag-bottom-sheet"]');
+          const sheetCard = tagSheet?.querySelector('.bottom-sheet-card');
+          const oatTagBtn = document.querySelector('[data-testid="tag-pill-tag-oat"]');
+          const decafTagBtn = document.querySelector('[data-testid="tag-pill-tag-decaf"]');
+          const syrupTagBtn = document.querySelector('[data-testid="tag-pill-tag-syrup"]');
+          const confirmBtn = document.querySelector('[data-testid="confirm-customization-btn"]');
+
+          const bannerRect = closedBanner?.getBoundingClientRect();
+          const croissantRect = croissantCard?.getBoundingClientRect();
+          const sheetRect = sheetCard?.getBoundingClientRect();
+
+          return {
+            htmlDir: document.documentElement.getAttribute('dir'),
+            statusBadgeText: statusBadge?.textContent?.trim(),
+            closedBannerText: closedBanner?.textContent?.trim(),
+            croissantCardDisabled: Boolean(croissantCard?.classList.contains('disabled')),
+            croissantBtnDisabled: Boolean(croissantBtn?.disabled),
+            croissantBtnText: croissantBtn?.textContent?.trim(),
+            tagSheetOpen: Boolean(tagSheet),
+            oatTagDisabled: Boolean(oatTagBtn?.disabled),
+            oatTagText: oatTagBtn?.textContent?.replace(/\\s+/g, ' ')?.trim(),
+            decafTagDisabled: Boolean(decafTagBtn?.disabled),
+            syrupTagDisabled: Boolean(syrupTagBtn?.disabled),
+            syrupTagText: syrupTagBtn?.textContent?.replace(/\\s+/g, ' ')?.trim(),
+            confirmBtnDisabled: Boolean(confirmBtn?.disabled),
+            confirmBtnText: confirmBtn?.textContent?.trim(),
+            layoutBoxes: {
+              closedBannerBottomPx: bannerRect ? Math.round(bannerRect.bottom) : null,
+              croissantCardBottomPx: croissantRect ? Math.round(croissantRect.bottom) : null,
+              sheetCardTopPx: sheetRect ? Math.round(sheetRect.top) : null,
+              closedBannerAndCroissantVisibleAboveSheet: Boolean(
+                bannerRect && croissantRect && sheetRect && croissantRect.bottom <= sheetRect.top
+              )
+            }
+          };
+        })()
+        """
+    )
+    s_cuj06_2 = os.path.join(SCREENSHOTS_DIR, "cuj06_customer_closed_and_86.png")
+    cdp.screenshot(s_cuj06_2)
+
+    report["m3_cuj04_05_06"] = {
+        "cuj04": {
+            "locked": cuj04_locked,
+            "error": cuj04_error,
+            "unlocked": cuj04_unlocked,
+            "reloadedKdsBypass": reloaded_kds_check,
+            "adminMenuBypass": admin_menu_bypass_check,
+        },
+        "cuj05": {
+            "activeTicket": cuj05_active,
+            "notifiedTicket": cuj05_notified,
+            "sqliteAfterTap1": sqlite_after_tap1,
+            "completedDrawer": cuj05_completed,
+            "sqliteAfterTap2": sqlite_after_tap2,
+        },
+        "cuj06": {
+            "kds86AndClosed": cuj06_kds,
+            "sqliteStoreState": sqlite_cuj06_store,
+            "customerClosedAnd86": cuj06_customer,
+        },
+        "screenshots": [
+            s_cuj04_1,
+            s_cuj04_2,
+            s_cuj04_3,
+            s_cuj05_1,
+            s_cuj05_2,
+            s_cuj05_3,
+            s_cuj06_1,
+            s_cuj06_2,
+        ],
     }
 
 
@@ -887,9 +1279,13 @@ def run_m1_smoke():
         # 6. Execute Milestone 2 CUJ-01, CUJ-02, CUJ-03 end-to-end (leaving Order #101 in ./db/data.db)
         run_m2_cujs(cdp, report)
 
-        report_path = os.path.join(SCREENSHOTS_DIR, "m2_cuj_report.json")
-        with open(report_path, "w", encoding="utf-8") as rf:
-            json.dump(report, rf, ensure_ascii=False, indent=2)
+        # 7. Execute Milestone 3 CUJ-04, CUJ-05, CUJ-06 end-to-end (PIN gate, KDS 2-tap lifecycle, Quick-86 & Closed Banner)
+        run_m3_cujs(cdp, report)
+
+        for fname in ("m2_cuj_report.json", "m3_cuj_report.json"):
+            report_path = os.path.join(SCREENSHOTS_DIR, fname)
+            with open(report_path, "w", encoding="utf-8") as rf:
+                json.dump(report, rf, ensure_ascii=False, indent=2)
 
         print(json.dumps(report, ensure_ascii=False, indent=2))
     finally:

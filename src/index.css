@@ -746,6 +746,15 @@ button {
 }
 
 /* Barista KDS Layout & Components */
+.kds-shell {
+  padding: 14px 20px 20px;
+}
+
+.kds-topbar {
+  padding: 12px 18px;
+  margin-bottom: 12px;
+}
+
 .kds-title-row {
   display: flex;
   align-items: center;
@@ -754,34 +763,34 @@ button {
 
 .kds-main-title {
   margin: 0;
-  font-size: 1.45rem;
+  font-size: 1.35rem;
   font-weight: 800;
   color: var(--text-espresso);
 }
 
 .kds-subtitle {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--text-stone);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .kds-topbar-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .kds-ops-panel {
   background: var(--bg-card);
   border: 1px solid var(--border-warm);
   border-radius: var(--radius-card);
-  padding: 16px 22px;
-  margin-bottom: 20px;
+  padding: 12px 18px;
+  margin-bottom: 12px;
   box-shadow: var(--shadow-soft);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .kds-closed-note-bar {
@@ -789,25 +798,25 @@ button {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding-bottom: 14px;
+  gap: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--border-warm);
 }
 
 .kds-closed-note-label-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .kds-panel-label {
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-espresso);
 }
 
 .kds-panel-hint {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: var(--text-stone);
 }
 
@@ -815,13 +824,13 @@ button {
   flex: 1;
   min-width: 280px;
   max-width: 560px;
-  padding: 10px 14px;
+  padding: 7px 12px;
   border: 1.5px solid var(--border-warm);
   border-radius: 10px;
   background: var(--bg-courtyard);
   color: var(--text-espresso);
   font-family: var(--font-he);
-  font-size: 0.98rem;
+  font-size: 0.92rem;
   font-weight: 600;
   text-align: right;
 }
@@ -836,37 +845,37 @@ button {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .kds-quick86-group {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .kds-quick86-title {
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: var(--text-stone);
 }
 
 .kds-quick86-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .kds-quick86-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
+  gap: 6px;
+  padding: 5px 10px;
   border-radius: var(--radius-pill);
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 700;
   transition: all 0.15s ease;
 }
@@ -885,9 +894,9 @@ button {
 
 .kds-86-badge {
   font-family: var(--font-mono);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: var(--radius-pill);
 }
 
@@ -905,8 +914,8 @@ button {
 .kds-orders-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 18px;
-  margin-bottom: 24px;
+  gap: 14px;
+  margin-bottom: 12px;
 }
 
 .kds-empty-card {
@@ -914,13 +923,13 @@ button {
   background: var(--bg-card);
   border: 1.5px dashed var(--border-warm);
   border-radius: var(--radius-card);
-  padding: 36px 24px;
+  padding: 28px 24px;
   text-align: center;
 }
 
 .kds-empty-title {
   margin: 0 0 6px;
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: var(--text-espresso);
 }
@@ -928,18 +937,18 @@ button {
 .kds-empty-desc {
   margin: 0;
   color: var(--text-stone);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .kds-ticket-card {
   background: var(--bg-card);
   border: 2px solid var(--border-warm);
   border-radius: var(--radius-card);
-  padding: 18px 20px;
+  padding: 14px 16px;
   box-shadow: var(--shadow-soft);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .kds-ticket-card.pending {
@@ -955,7 +964,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .kds-ticket-id-group {
@@ -966,15 +975,15 @@ button {
 
 .kds-ticket-num {
   font-family: var(--font-mono);
-  font-size: 1.65rem;
+  font-size: 1.45rem;
   font-weight: 900;
   color: var(--text-espresso);
 }
 
 .kds-ticket-badge {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 800;
-  padding: 4px 10px;
+  padding: 3px 9px;
   border-radius: var(--radius-pill);
 }
 
@@ -990,7 +999,7 @@ button {
 
 .kds-ticket-total {
   font-family: var(--font-mono);
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: var(--color-sage);
 }
@@ -999,10 +1008,10 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: var(--bg-courtyard);
-  border-radius: 10px;
-  font-size: 0.95rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
 }
 
 .kds-ticket-phone {
@@ -1017,11 +1026,11 @@ button {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .kds-ticket-item {
-  padding-bottom: 10px;
+  padding-bottom: 6px;
   border-bottom: 1px dashed var(--border-warm);
 }
 
@@ -1035,13 +1044,13 @@ button {
   align-items: center;
   justify-content: space-between;
   font-weight: 800;
-  font-size: 1.05rem;
+  font-size: 0.96rem;
   color: var(--text-espresso);
 }
 
 .kds-item-line-price {
   font-family: var(--font-mono);
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   color: var(--text-stone);
 }
 
@@ -1049,46 +1058,46 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .kds-tag-pill {
   background: rgba(63, 98, 77, 0.12);
   color: var(--color-sage);
   border: 1px solid rgba(63, 98, 77, 0.28);
-  padding: 3px 10px;
+  padding: 2px 9px;
   border-radius: var(--radius-pill);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 700;
 }
 
 .kds-ticket-note {
-  margin-top: 8px;
-  padding: 8px 12px;
+  margin-top: 5px;
+  padding: 5px 10px;
   background: rgba(200, 109, 81, 0.12);
   border-left: 3px solid var(--color-terracotta);
   border-radius: 6px;
   color: var(--text-espresso);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .kds-wa-preview-box {
   background: var(--bg-subtle);
   border: 1px solid var(--border-warm);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 
 .kds-wa-preview-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .kds-wa-preview-label {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 700;
   color: var(--text-stone);
   text-transform: uppercase;
@@ -1098,8 +1107,8 @@ button {
   background: var(--bg-card);
   border: 1px solid var(--border-warm);
   border-radius: 8px;
-  padding: 4px 10px;
-  font-size: 0.8rem;
+  padding: 3px 9px;
+  font-size: 0.76rem;
   font-weight: 700;
   color: var(--text-espresso);
 }
@@ -1107,8 +1116,8 @@ button {
 .kds-wa-preview-text {
   margin: 0;
   font-family: var(--font-he);
-  font-size: 0.85rem;
-  line-height: 1.4;
+  font-size: 0.8rem;
+  line-height: 1.3;
   color: var(--text-espresso);
   white-space: pre-wrap;
   text-align: right;
@@ -1116,13 +1125,13 @@ button {
 
 .kds-action-btn {
   width: 100%;
-  padding: 14px 18px;
-  font-size: 1.05rem;
+  padding: 10px 16px;
+  font-size: 0.96rem;
 }
 
 /* Completed Orders Drawer */
 .kds-completed-section {
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .kds-drawer-toggle-btn {
@@ -1130,12 +1139,12 @@ button {
   background: var(--bg-card);
   border: 1px solid var(--border-warm);
   border-radius: 12px;
-  padding: 12px 18px;
+  padding: 10px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-weight: 800;
-  font-size: 0.98rem;
+  font-size: 0.92rem;
   color: var(--text-espresso);
   box-shadow: var(--shadow-soft);
 }
