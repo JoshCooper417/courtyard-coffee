@@ -314,6 +314,77 @@ class TestMilestone1And2Utils(unittest.TestCase):
         self.assertIn("__lastStoreSavePromise", kds_js)
         self.assertIn("kds-status-badge", kds_js)
 
+    def test_cuj07_image_compressor_and_admin_spreadsheet_normalization(self):
+        image_js = (ROOT_DIR / "src" / "utils" / "image.js").read_text(encoding="utf-8")
+        self.assertIn("compressImageFileToDataUrl", image_js)
+        self.assertIn("FileReader", image_js)
+        self.assertIn("new Image()", image_js)
+        self.assertIn("canvas.width = targetSize", image_js)
+        self.assertIn("canvas.height = targetSize", image_js)
+        self.assertIn("Math.min(img.width, img.height)", image_js)
+        self.assertIn('canvas.toDataURL("image/jpeg", quality)', image_js)
+
+        store = get_store_state(db_path=self.db_path)
+        store["photoAlbum"].append(
+            {
+                "id": "photo-matcha",
+                "label": "Iced Matcha Photo",
+                "url": "data:image/jpeg;base64,matcha123",
+            }
+        )
+        store["globalTags"].append(
+            {
+                "id": "tag-almond",
+                "nameEn": "Almond Milk",
+                "nameHe": "חלב שקדים",
+                "price": 2,
+                "inStock": True,
+            }
+        )
+        store["menuItems"].append(
+            {
+                "id": "item-matcha",
+                "category": "Coffee",
+                "nameEn": "Iced Matcha",
+                "nameHe": "מאצ׳ה אייס",
+                "descHe": "מאצ׳ה יפנית על חלב קר",
+                "price": 18,
+                "inStock": True,
+                "photo": "data:image/jpeg;base64,matcha123",
+                "tagIds": ["tag-almond"],
+            }
+        )
+
+        saved = save_store_state(store, db_path=self.db_path)
+        matcha_photo = next(p for p in saved["photoAlbum"] if p["id"] == "photo-matcha")
+        self.assertEqual(matcha_photo.get("label"), "Iced Matcha Photo")
+        self.assertEqual(matcha_photo.get("name"), "Iced Matcha Photo")
+        self.assertEqual(matcha_photo.get("url"), "data:image/jpeg;base64,matcha123")
+        self.assertEqual(matcha_photo.get("dataUrl"), "data:image/jpeg;base64,matcha123")
+
+        almond_tag = next(t for t in saved["globalTags"] if t["id"] == "tag-almond")
+        self.assertEqual(almond_tag.get("nameEn"), "Almond Milk")
+        self.assertEqual(almond_tag.get("labelEn"), "Almond Milk")
+        self.assertEqual(almond_tag.get("nameHe"), "חלב שקדים")
+        self.assertEqual(almond_tag.get("labelHe"), "חלב שקדים")
+        self.assertEqual(almond_tag.get("price"), 2)
+        self.assertEqual(almond_tag.get("priceDelta"), 2)
+        self.assertIs(almond_tag.get("inStock"), True)
+
+        matcha_item = next(i for i in saved["menuItems"] if i["id"] == "item-matcha")
+        self.assertEqual(matcha_item.get("nameEn"), "Iced Matcha")
+        self.assertEqual(matcha_item.get("titleEn"), "Iced Matcha")
+        self.assertEqual(matcha_item.get("nameHe"), "מאצ׳ה אייס")
+        self.assertEqual(matcha_item.get("titleHe"), "מאצ׳ה אייס")
+        self.assertEqual(matcha_item.get("photo"), "data:image/jpeg;base64,matcha123")
+        self.assertEqual(matcha_item.get("imageUrl"), "data:image/jpeg;base64,matcha123")
+        self.assertEqual(matcha_item.get("photoUrl"), "data:image/jpeg;base64,matcha123")
+        self.assertEqual(matcha_item.get("photoId"), "photo-matcha")
+
+        admin_menu_js = (ROOT_DIR / "src" / "routes" / "AdminMenu.js").read_text(encoding="utf-8")
+        self.assertIn("new Blob([JSON.stringify", admin_menu_js)
+        self.assertIn("saveStoreState", admin_menu_js)
+
 
 if __name__ == "__main__":
     unittest.main()

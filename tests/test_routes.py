@@ -419,6 +419,117 @@ class TestMilestone1And2Routes(unittest.TestCase):
         self.assertIn("quick86-item-", kds_js)
         self.assertIn("saveStoreState", kds_js)
 
+    def test_cuj07_admin_menu_spreadsheet_photo_album_and_store_persistence(self):
+        status_get, store = self._request_json("GET", "/api/store")
+        self.assertEqual(status_get, 200)
+        self.assertEqual(len(store["photoAlbum"]), 2)
+        self.assertEqual(len(store["globalTags"]), 3)
+        self.assertEqual(len(store["menuItems"]), 2)
+
+        matcha_data_url = "data:image/jpeg;base64,/9j/4AAQSkZJRg=="
+        store["photoAlbum"].append(
+            {
+                "id": "photo-matcha",
+                "label": "Iced Matcha Photo",
+                "url": matcha_data_url,
+            }
+        )
+        store["globalTags"].append(
+            {
+                "id": "tag-almond",
+                "nameEn": "Almond Milk",
+                "nameHe": "חלב שקדים",
+                "price": 2,
+                "inStock": True,
+            }
+        )
+        store["menuItems"].append(
+            {
+                "id": "item-matcha",
+                "category": "Coffee",
+                "nameEn": "Iced Matcha",
+                "nameHe": "מאצ׳ה אייס",
+                "descHe": "מאצ׳ה יפנית על חלב קר",
+                "price": 18,
+                "inStock": True,
+                "photoId": "photo-matcha",
+                "tagIds": ["tag-almond"],
+            }
+        )
+
+        status_put, updated = self._request_json("PUT", "/api/store", store)
+        self.assertEqual(status_put, 200)
+        self.assertEqual(len(updated["photoAlbum"]), 3)
+        self.assertEqual(len(updated["globalTags"]), 4)
+        self.assertEqual(len(updated["menuItems"]), 3)
+
+        almond_tag = next(t for t in updated["globalTags"] if t["id"] == "tag-almond")
+        self.assertEqual(almond_tag.get("labelEn"), "Almond Milk")
+        self.assertEqual(almond_tag.get("labelHe"), "חלב שקדים")
+        self.assertEqual(almond_tag.get("priceDelta"), 2)
+
+        matcha_item = next(i for i in updated["menuItems"] if i["id"] == "item-matcha")
+        self.assertEqual(matcha_item.get("photo"), matcha_data_url)
+        self.assertEqual(matcha_item.get("imageUrl"), matcha_data_url)
+        self.assertEqual(matcha_item.get("photoUrl"), matcha_data_url)
+        self.assertEqual(matcha_item.get("photoId"), "photo-matcha")
+
+        status_order, created_order = self._request_json(
+            "POST",
+            "/api/order",
+            {
+                "customerName": "נועה",
+                "customerPhone": "054-9876543",
+                "items": [
+                    {
+                        "itemId": "item-matcha",
+                        "qty": 1,
+                        "selectedTagIds": ["tag-almond"],
+                    }
+                ],
+            },
+        )
+        self.assertEqual(status_order, 201)
+        self.assertEqual(created_order["total"], 20)
+        self.assertEqual(created_order["items"][0]["tagsHe"], ["חלב שקדים"])
+        self.assertEqual(created_order["items"][0]["tagsEn"], ["Almond Milk"])
+
+        admin_menu_js = (ROOT_DIR / "src" / "routes" / "AdminMenu.js").read_text(encoding="utf-8")
+        self.assertIn('data-testid="admin-menu-view"', admin_menu_js)
+        self.assertIn('dir="ltr"', admin_menu_js)
+        self.assertIn('data-testid="admin-save-btn"', admin_menu_js)
+        self.assertIn('data-testid="admin-save-status"', admin_menu_js)
+        self.assertIn('data-testid="json-byte-size"', admin_menu_js)
+        self.assertIn('data-testid="json-raw-preview"', admin_menu_js)
+        self.assertIn('data-testid="setting-bit-phone"', admin_menu_js)
+        self.assertIn('data-testid="setting-admin-pin"', admin_menu_js)
+        self.assertIn('data-testid="setting-closed-note-he"', admin_menu_js)
+        self.assertIn('data-testid="setting-is-open"', admin_menu_js)
+        self.assertIn('data-testid="new-photo-label-input"', admin_menu_js)
+        self.assertIn('data-testid="new-photo-file-input"', admin_menu_js)
+        self.assertIn("compressImageFileToDataUrl", admin_menu_js)
+        self.assertIn("photo-card-", admin_menu_js)
+        self.assertIn("photo-label-", admin_menu_js)
+        self.assertIn("delete-photo-", admin_menu_js)
+        self.assertIn('data-testid="add-global-tag-btn"', admin_menu_js)
+        self.assertIn("tag-row-", admin_menu_js)
+        self.assertIn("tag-instock-", admin_menu_js)
+        self.assertIn("tag-name-en-", admin_menu_js)
+        self.assertIn("tag-name-he-", admin_menu_js)
+        self.assertIn("tag-price-", admin_menu_js)
+        self.assertIn("delete-tag-", admin_menu_js)
+        self.assertIn('data-testid="add-menu-item-btn"', admin_menu_js)
+        self.assertIn("item-row-", admin_menu_js)
+        self.assertIn("item-instock-", admin_menu_js)
+        self.assertIn("item-category-", admin_menu_js)
+        self.assertIn("item-name-en-", admin_menu_js)
+        self.assertIn("item-name-he-", admin_menu_js)
+        self.assertIn("item-desc-he-", admin_menu_js)
+        self.assertIn("item-price-", admin_menu_js)
+        self.assertIn("item-photo-", admin_menu_js)
+        self.assertIn("item-tag-", admin_menu_js)
+        self.assertIn("delete-item-", admin_menu_js)
+
 
 if __name__ == "__main__":
     unittest.main()
