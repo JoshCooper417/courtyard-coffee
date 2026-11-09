@@ -9,6 +9,11 @@
  */
 import { saveStoreState } from "../state.js";
 import { compressImageFileToDataUrl } from "../utils/image.js";
+import { renderMenuItemCard } from "../components/MenuItemCard.js";
+
+const ADMIN_CATEGORIES = ["Coffee", "Cold", "Pastry", "Other"];
+const EMPTY_PIXEL_GIF =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
 function escapeHtml(str) {
   return String(str ?? "")
@@ -204,33 +209,43 @@ export function mountAdminMenuRoute(container, initialStore) {
       <section class="admin-panel-card admin-items-card" aria-label="Menu Items Spreadsheet">
         <div class="admin-panel-header">
           <h2 class="admin-panel-title">Menu Items Spreadsheet</h2>
-          <button
-            type="button"
-            class="btn-secondary admin-add-row-btn"
-            data-testid="add-menu-item-btn"
-          >
-            + Add Menu Item
-          </button>
+          <div class="admin-header-btn-group">
+            <button
+              type="button"
+              class="btn-primary admin-add-row-btn"
+              data-testid="quick-add-item-btn"
+            >
+              + Quick Add Product
+            </button>
+            <button
+              type="button"
+              class="btn-secondary admin-add-row-btn"
+              data-testid="add-menu-item-btn"
+            >
+              + Add Menu Item
+            </button>
+          </div>
         </div>
         <div class="admin-table-wrap">
           <table class="admin-spreadsheet-table admin-items-table">
             <thead>
               <tr>
-                <th style="width: 48px;">Stock</th>
-                <th style="width: 90px;">Category</th>
-                <th style="width: 128px;">Name (EN)</th>
-                <th style="width: 118px;">Name (HE)</th>
+                <th style="width: 44px;">Stock</th>
+                <th style="width: 86px;">Category</th>
+                <th style="width: 124px;">Name (EN)</th>
+                <th style="width: 114px;">Name (HE)</th>
                 <th>Description (HE)</th>
-                <th style="width: 72px;">Price (₪)</th>
-                <th style="width: 176px;">Photo</th>
-                <th style="width: 292px;">Attached Tags</th>
-                <th style="width: 62px;">Action</th>
+                <th style="width: 68px;">Price (₪)</th>
+                <th style="width: 196px;">Photo</th>
+                <th style="width: 296px;">Attached Tags</th>
+                <th style="width: 96px;">Action</th>
               </tr>
             </thead>
             <tbody id="admin-items-tbody"></tbody>
           </table>
         </div>
       </section>
+      <div id="admin-quick-add-modal-host"></div>
     </main>
   `;
 
@@ -250,6 +265,8 @@ export function mountAdminMenuRoute(container, initialStore) {
   const itemsTbody = container.querySelector("#admin-items-tbody");
   const addTagBtn = container.querySelector('[data-testid="add-global-tag-btn"]');
   const addItemBtn = container.querySelector('[data-testid="add-menu-item-btn"]');
+  const quickAddItemBtn = container.querySelector('[data-testid="quick-add-item-btn"]');
+  const quickAddModalHost = container.querySelector("#admin-quick-add-modal-host");
 
   function updateInspectorAndHeader() {
     const itemsCount = (store.menuItems || []).length;
@@ -394,6 +411,19 @@ export function mountAdminMenuRoute(container, initialStore) {
       .join("");
   }
 
+  function resolveItemPhotoUrl(item) {
+    const photos = store.photoAlbum || [];
+    const currentPhotoId = item.photoId || "";
+    const currentPhotoUrl = item.photo || item.imageUrl || item.photoUrl || "";
+    if (currentPhotoId) {
+      const matched = photos.find((p) => p.id === currentPhotoId);
+      if (matched) {
+        return matched.url || matched.dataUrl || "";
+      }
+    }
+    return currentPhotoUrl;
+  }
+
   function renderItemPhotoOptionsHtml(item) {
     const photos = store.photoAlbum || [];
     const currentPhotoId = item.photoId || "";
@@ -421,7 +451,8 @@ export function mountAdminMenuRoute(container, initialStore) {
     if (tags.length === 0) {
       return `<span class="admin-empty-hint">No tags</span>`;
     }
-    return tags
+    const allSelected = tags.every((t) => attachedSet.has(t.id));
+    const pillsHtml = tags
       .map((tag) => {
         const isSelected = attachedSet.has(tag.id);
         const label = tag.nameEn || tag.labelEn || tag.nameHe || tag.id;
@@ -439,6 +470,27 @@ export function mountAdminMenuRoute(container, initialStore) {
         `;
       })
       .join("");
+    const bulkToggleHtml = `
+      <button
+        type="button"
+        class="admin-item-tag-bulk-btn"
+        data-testid="toggle-all-item-tags-${escapeAttr(item.id)}"
+        data-toggle-all-item-tags="${escapeAttr(item.id)}"
+        title="${allSelected ? "Clear all tags" : "Attach all tags"}"
+      >
+        ${allSelected ? "Clear" : "All"}
+      </button>
+    `;
+    return pillsHtml + bulkToggleHtml;
+  }
+
+  function renderCategoryOptionsHtml(category) {
+    return `
+      <option value="Coffee" ${category === "Coffee" ? "selected" : ""}>Coffee</option>
+      <option value="Cold" ${category === "Cold" ? "selected" : ""}>Cold</option>
+      <option value="Pastry" ${category === "Pastry" ? "selected" : ""}>Pastry</option>
+      <option value="Other" ${category === "Other" ? "selected" : ""}>Other</option>
+    `;
   }
 
   function renderItemsRegion() {
@@ -452,6 +504,8 @@ export function mountAdminMenuRoute(container, initialStore) {
         const nameHe = escapeAttr(item.nameHe ?? item.titleHe ?? "");
         const descHe = escapeAttr(item.descHe ?? "");
         const price = Number(item.price ?? 0);
+        const resolvedPhotoUrl = resolveItemPhotoUrl(item);
+        const catOptions = renderCategoryOptionsHtml(category);
         return `
           <tr data-testid="item-row-${iid}" data-item-id="${iid}">
             <td class="admin-td-center">
@@ -470,8 +524,7 @@ export function mountAdminMenuRoute(container, initialStore) {
                 data-item-field="category"
                 data-item-id="${iid}"
               >
-                <option value="Coffee" ${category === "Coffee" ? "selected" : ""}>Coffee</option>
-                <option value="Pastry" ${category === "Pastry" ? "selected" : ""}>Pastry</option>
+                ${catOptions}
               </select>
             </td>
             <td>
@@ -521,14 +574,37 @@ export function mountAdminMenuRoute(container, initialStore) {
               />
             </td>
             <td>
-              <select
-                class="admin-select"
-                data-testid="item-photo-${iid}"
-                data-item-field="photo"
-                data-item-id="${iid}"
-              >
-                ${renderItemPhotoOptionsHtml(item)}
-              </select>
+              <div class="admin-item-photo-cell">
+                <img
+                  class="admin-item-photo-thumb ${resolvedPhotoUrl ? "" : "is-empty"}"
+                  data-testid="item-photo-thumb-${iid}"
+                  src="${escapeAttr(resolvedPhotoUrl || EMPTY_PIXEL_GIF)}"
+                  alt=""
+                  width="24"
+                  height="24"
+                />
+                <select
+                  class="admin-select admin-item-photo-select"
+                  data-testid="item-photo-${iid}"
+                  data-item-field="photo"
+                  data-item-id="${iid}"
+                >
+                  ${renderItemPhotoOptionsHtml(item)}
+                </select>
+                <label
+                  class="btn-secondary admin-btn-xs admin-inline-upload-label"
+                  title="Upload photo directly for this item"
+                >
+                  <span>+</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    class="admin-file-input-hidden"
+                    data-testid="item-photo-upload-${iid}"
+                    data-item-photo-upload="${iid}"
+                  />
+                </label>
+              </div>
             </td>
             <td>
               <div class="admin-item-tags-cell" data-item-tags-cell="${iid}">
@@ -536,19 +612,40 @@ export function mountAdminMenuRoute(container, initialStore) {
               </div>
             </td>
             <td class="admin-td-center">
-              <button
-                type="button"
-                class="btn-danger admin-btn-xs"
-                data-testid="delete-item-${iid}"
-                data-delete-item="${iid}"
-              >
-                Delete
-              </button>
+              <div class="admin-row-actions">
+                <button
+                  type="button"
+                  class="btn-secondary admin-btn-xs"
+                  data-testid="duplicate-item-${iid}"
+                  data-duplicate-item="${iid}"
+                  title="Duplicate item"
+                >
+                  Copy
+                </button>
+                <button
+                  type="button"
+                  class="btn-danger admin-btn-xs"
+                  data-testid="delete-item-${iid}"
+                  data-delete-item="${iid}"
+                >
+                  Delete
+                </button>
+              </div>
             </td>
           </tr>
         `;
       })
       .join("");
+  }
+
+  function refreshItemPhotoThumb(item) {
+    if (!itemsTbody) return;
+    const thumb = itemsTbody.querySelector(`[data-testid="item-photo-thumb-${item.id}"]`);
+    if (thumb) {
+      const resolvedUrl = resolveItemPhotoUrl(item);
+      thumb.src = resolvedUrl || EMPTY_PIXEL_GIF;
+      thumb.classList.toggle("is-empty", !resolvedUrl);
+    }
   }
 
   function refreshAllItemPhotoSelects() {
@@ -558,6 +655,18 @@ export function mountAdminMenuRoute(container, initialStore) {
       if (sel) {
         sel.innerHTML = renderItemPhotoOptionsHtml(item);
       }
+      refreshItemPhotoThumb(item);
+    }
+  }
+
+  function focusItemNameInput(itemId) {
+    if (!itemsTbody) return;
+    const nameInput = itemsTbody.querySelector(`[data-testid="item-name-en-${itemId}"]`);
+    if (nameInput) {
+      if (typeof nameInput.scrollIntoView === "function") {
+        nameInput.scrollIntoView({ block: "nearest" });
+      }
+      nameInput.focus();
     }
   }
 
@@ -750,7 +859,6 @@ export function mountAdminMenuRoute(container, initialStore) {
       const existingIds = new Set((store.menuItems || []).map((i) => i.id));
       const nextNum = (store.menuItems || []).length + 1;
       const newItemId = slugifyId("item", `custom-${nextNum}`, existingIds);
-      const defaultPhoto = (store.photoAlbum || [])[0] || null;
       store.menuItems.push({
         id: newItemId,
         category: "Coffee",
@@ -761,20 +869,63 @@ export function mountAdminMenuRoute(container, initialStore) {
         descHe: "",
         price: 14,
         inStock: true,
-        photo: defaultPhoto ? defaultPhoto.url : "",
-        imageUrl: defaultPhoto ? defaultPhoto.url : "",
-        photoUrl: defaultPhoto ? defaultPhoto.url : "",
-        photoId: defaultPhoto ? defaultPhoto.id : "",
+        photo: "",
+        imageUrl: "",
+        photoUrl: "",
+        photoId: "",
         tagIds: [],
       });
       renderItemsRegion();
+      focusItemNameInput(newItemId);
       markDirty();
     });
   }
 
-  // Menu Items table inline edit, tag pill toggle, and delete
+  // Menu Items table inline edit, inline photo upload, tag pill toggle, bulk tag toggle, duplicate, and delete
   if (itemsTbody) {
     const handleItemFieldUpdate = (e) => {
+      const uploadInput = e.target.closest("[data-item-photo-upload]");
+      if (uploadInput && e.type === "change") {
+        const iid = uploadInput.getAttribute("data-item-photo-upload");
+        const item = (store.menuItems || []).find((i) => i.id === iid);
+        const file = uploadInput.files && uploadInput.files[0];
+        if (!item || !file) return;
+
+        const baseName = (
+          item.nameEn ||
+          item.nameHe ||
+          (file.name || "Photo").replace(/\.[^.]+$/, "")
+        ).trim();
+        const label = baseName.endsWith("Photo") ? baseName : `${baseName} Photo`;
+
+        const uploadPromise = compressImageFileToDataUrl(file, 400, 0.82).then((dataUrl) => {
+          const existingIds = new Set((store.photoAlbum || []).map((p) => p.id));
+          const newPhotoId = slugifyId("photo", label, existingIds);
+          const newPhoto = {
+            id: newPhotoId,
+            label,
+            name: label,
+            url: dataUrl,
+            dataUrl,
+          };
+          store.photoAlbum.push(newPhoto);
+          item.photo = dataUrl;
+          item.imageUrl = dataUrl;
+          item.photoUrl = dataUrl;
+          item.photoId = newPhotoId;
+          uploadInput.value = "";
+          renderPhotosRegion();
+          refreshAllItemPhotoSelects();
+          markDirty();
+          return newPhoto;
+        });
+
+        if (typeof window !== "undefined") {
+          window.__lastPhotoUploadPromise = uploadPromise;
+        }
+        return;
+      }
+
       const el = e.target.closest("[data-item-field]");
       if (!el) return;
       const iid = el.getAttribute("data-item-id");
@@ -819,6 +970,7 @@ export function mountAdminMenuRoute(container, initialStore) {
           item.photoUrl = val || "";
           item.photoId = "";
         }
+        refreshItemPhotoThumb(item);
       }
       markDirty();
     };
@@ -827,6 +979,23 @@ export function mountAdminMenuRoute(container, initialStore) {
     itemsTbody.addEventListener("change", handleItemFieldUpdate);
 
     itemsTbody.addEventListener("click", (e) => {
+      const bulkToggleBtn = e.target.closest("[data-toggle-all-item-tags]");
+      if (bulkToggleBtn) {
+        const iid = bulkToggleBtn.getAttribute("data-toggle-all-item-tags");
+        const item = (store.menuItems || []).find((i) => i.id === iid);
+        if (!item) return;
+        const allTagIds = (store.globalTags || []).map((t) => t.id);
+        const currentSet = new Set(Array.isArray(item.tagIds) ? item.tagIds : []);
+        const allSelected = allTagIds.length > 0 && allTagIds.every((id) => currentSet.has(id));
+        item.tagIds = allSelected ? [] : [...allTagIds];
+        const cell = itemsTbody.querySelector(`[data-item-tags-cell="${iid}"]`);
+        if (cell) {
+          cell.innerHTML = renderItemTagPillsHtml(item);
+        }
+        markDirty();
+        return;
+      }
+
       const tagPill = e.target.closest("[data-toggle-item-tag]");
       if (tagPill) {
         const iid = tagPill.getAttribute("data-toggle-item-tag");
@@ -847,6 +1016,37 @@ export function mountAdminMenuRoute(container, initialStore) {
         return;
       }
 
+      const dupBtn = e.target.closest("[data-duplicate-item]");
+      if (dupBtn) {
+        const iid = dupBtn.getAttribute("data-duplicate-item");
+        const sourceItem = (store.menuItems || []).find((i) => i.id === iid);
+        if (!sourceItem) return;
+        const existingIds = new Set((store.menuItems || []).map((i) => i.id));
+        const copyEn = sourceItem.nameEn ? `${sourceItem.nameEn} (Copy)` : "";
+        const copyHe = sourceItem.nameHe ? `${sourceItem.nameHe} (עותק)` : "";
+        const newItemId = slugifyId("item", copyEn || "copy", existingIds);
+        store.menuItems.push({
+          id: newItemId,
+          category: sourceItem.category || "Coffee",
+          nameEn: copyEn,
+          titleEn: copyEn,
+          nameHe: copyHe,
+          titleHe: copyHe,
+          descHe: sourceItem.descHe || "",
+          price: Number(sourceItem.price ?? 14),
+          inStock: Boolean(sourceItem.inStock ?? true),
+          photo: sourceItem.photo || "",
+          imageUrl: sourceItem.imageUrl || sourceItem.photo || "",
+          photoUrl: sourceItem.photoUrl || sourceItem.photo || "",
+          photoId: sourceItem.photoId || "",
+          tagIds: Array.isArray(sourceItem.tagIds) ? [...sourceItem.tagIds] : [],
+        });
+        renderItemsRegion();
+        focusItemNameInput(newItemId);
+        markDirty();
+        return;
+      }
+
       const delBtn = e.target.closest("[data-delete-item]");
       if (delBtn) {
         const iid = delBtn.getAttribute("data-delete-item");
@@ -857,37 +1057,403 @@ export function mountAdminMenuRoute(container, initialStore) {
     });
   }
 
+  function triggerSaveStore() {
+    saveStatusText = "Saving...";
+    saveStatusTone = "saving";
+    updateInspectorAndHeader();
+
+    const p = saveStoreState(store)
+      .then((updated) => {
+        store = JSON.parse(JSON.stringify(updated));
+        saveStatusText = "Saved ✓";
+        saveStatusTone = "saved";
+        renderPhotosRegion();
+        renderTagsRegion();
+        renderItemsRegion();
+        updateInspectorAndHeader();
+        return updated;
+      })
+      .catch((err) => {
+        saveStatusText = `Save failed: ${err.message}`;
+        saveStatusTone = "error";
+        updateInspectorAndHeader();
+        throw err;
+      });
+
+    if (typeof window !== "undefined") {
+      window.__lastAdminSavePromise = p;
+      window.__lastStoreSavePromise = p;
+    }
+    return p;
+  }
+
   // Save Changes button
   if (saveBtnEl) {
     saveBtnEl.addEventListener("click", () => {
-      saveStatusText = "Saving...";
-      saveStatusTone = "saving";
-      updateInspectorAndHeader();
-
-      const p = saveStoreState(store)
-        .then((updated) => {
-          store = JSON.parse(JSON.stringify(updated));
-          saveStatusText = "Saved ✓";
-          saveStatusTone = "saved";
-          renderPhotosRegion();
-          renderTagsRegion();
-          renderItemsRegion();
-          updateInspectorAndHeader();
-          return updated;
-        })
-        .catch((err) => {
-          saveStatusText = `Save failed: ${err.message}`;
-          saveStatusTone = "error";
-          updateInspectorAndHeader();
-          throw err;
-        });
-
-      if (typeof window !== "undefined") {
-        window.__lastAdminSavePromise = p;
-        window.__lastStoreSavePromise = p;
-      }
+      triggerSaveStore();
     });
   }
+
+  // Guided Quick-Add Product Modal
+  function openQuickAddModal() {
+    if (!quickAddModalHost) return;
+    const defaultCoffeeTagIds = (store.globalTags || [])
+      .filter((t) => t.inStock)
+      .map((t) => t.id);
+
+    const draft = {
+      id: "preview-item",
+      category: "Coffee",
+      nameEn: "",
+      nameHe: "",
+      descHe: "",
+      price: 14,
+      inStock: true,
+      photoId: "",
+      photo: "",
+      tagIds: [...defaultCoffeeTagIds],
+      errorMsg: "",
+    };
+
+    function getPhotosByIdMap() {
+      const map = {};
+      for (const p of store.photoAlbum || []) {
+        map[p.id] = p.url || p.dataUrl || "";
+      }
+      return map;
+    }
+
+    function updatePreviewRegion() {
+      const previewEl = quickAddModalHost.querySelector('[data-testid="quick-add-preview"]');
+      if (!previewEl) return;
+      const previewItem = {
+        ...draft,
+        nameHe: draft.nameHe || "שם מוצר לדוגמה",
+        descHe: draft.descHe || "תיאור קצר שיופיע ללקוחות בתפריט",
+      };
+      previewEl.innerHTML = renderMenuItemCard(previewItem, store, getPhotosByIdMap());
+    }
+
+    function renderModal() {
+      const catOpts = ADMIN_CATEGORIES.map(
+        (cat) =>
+          `<option value="${escapeAttr(cat)}" ${
+            draft.category === cat ? "selected" : ""
+          }>${escapeHtml(cat)}</option>`
+      ).join("");
+      const photoOpts = renderItemPhotoOptionsHtml(draft);
+      const tags = store.globalTags || [];
+      const attachedSet = new Set(draft.tagIds);
+      const allTagsSelected = tags.length > 0 && tags.every((t) => attachedSet.has(t.id));
+
+      quickAddModalHost.innerHTML = `
+        <div class="modal-backdrop" data-testid="quick-add-modal">
+          <div class="modal-card admin-quick-add-card">
+            <div class="sheet-header">
+              <div>
+                <h2 class="sheet-title">Quick Add Product</h2>
+                <p class="sheet-subtitle">Add a menu item with photo, tags &amp; live customer preview</p>
+              </div>
+              <button
+                type="button"
+                class="sheet-close-btn"
+                data-testid="quick-add-close-btn"
+                aria-label="Close modal"
+              >✕</button>
+            </div>
+
+            ${
+              draft.errorMsg
+                ? `<div class="pin-error" data-testid="quick-add-error" role="alert">${escapeHtml(draft.errorMsg)}</div>`
+                : ""
+            }
+
+            <div class="admin-quick-add-grid">
+              <label class="admin-field-label">
+                <span>Category</span>
+                <select class="admin-select" data-testid="quick-add-category">
+                  ${catOpts}
+                </select>
+              </label>
+              <label class="admin-field-label">
+                <span>Price (₪)</span>
+                <input
+                  type="number"
+                  class="admin-input admin-input-num"
+                  data-testid="quick-add-price"
+                  value="${Number(draft.price || 0)}"
+                  step="1"
+                />
+              </label>
+              <label class="admin-field-label">
+                <span>Name (EN — for Barista KDS)</span>
+                <input
+                  type="text"
+                  class="admin-input"
+                  data-testid="quick-add-name-en"
+                  value="${escapeAttr(draft.nameEn)}"
+                  placeholder="e.g. Cold Brew"
+                />
+              </label>
+              <label class="admin-field-label">
+                <span>Name (HE — for Storefront)</span>
+                <input
+                  type="text"
+                  dir="rtl"
+                  class="admin-input admin-input-rtl"
+                  data-testid="quick-add-name-he"
+                  value="${escapeAttr(draft.nameHe)}"
+                  placeholder="למשל: קולד ברו"
+                />
+              </label>
+              <label class="admin-field-label admin-quick-add-span-2">
+                <span>Description (HE)</span>
+                <input
+                  type="text"
+                  dir="rtl"
+                  class="admin-input admin-input-rtl"
+                  data-testid="quick-add-desc-he"
+                  value="${escapeAttr(draft.descHe)}"
+                  placeholder="תיאור מנה בעברית"
+                />
+              </label>
+              <div class="admin-field-label admin-quick-add-span-2">
+                <span>Product Photo (Select existing or Upload new 400×400 JPEG)</span>
+                <div class="admin-item-photo-cell">
+                  <select class="admin-select admin-item-photo-select" data-testid="quick-add-photo-select">
+                    ${photoOpts}
+                  </select>
+                  <label class="btn-secondary admin-btn-xs admin-inline-upload-label">
+                    <span>+ Upload Photo</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      class="admin-file-input-hidden"
+                      data-testid="quick-add-photo-file"
+                    />
+                  </label>
+                </div>
+              </div>
+              <div class="admin-field-label admin-quick-add-span-2">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span>Attached Modifier Tags</span>
+                  <button
+                    type="button"
+                    class="admin-item-tag-bulk-btn"
+                    data-testid="quick-add-toggle-all-tags"
+                  >
+                    ${allTagsSelected ? "Clear All" : "Select All"}
+                  </button>
+                </div>
+                <div class="admin-item-tags-cell" style="margin-top: 4px;">
+                  ${tags
+                    .map((t) => {
+                      const sel = attachedSet.has(t.id);
+                      const lbl = t.nameEn || t.labelEn || t.nameHe || t.id;
+                      return `
+                        <button
+                          type="button"
+                          class="admin-item-tag-pill ${sel ? "selected" : ""}"
+                          data-testid="quick-add-tag-${escapeAttr(t.id)}"
+                          data-quick-add-tag="${escapeAttr(t.id)}"
+                        >
+                          ${escapeHtml(lbl)}
+                        </button>
+                      `;
+                    })
+                    .join("")}
+                </div>
+              </div>
+            </div>
+
+            <div class="admin-quick-add-preview-wrap">
+              <span class="admin-field-label" style="margin-bottom: 4px;">Live Customer Storefront Preview (RTL)</span>
+              <div dir="rtl" data-testid="quick-add-preview"></div>
+            </div>
+
+            <div class="admin-quick-add-actions">
+              <button
+                type="button"
+                class="btn-primary"
+                style="width: 100%;"
+                data-testid="quick-add-save-btn"
+              >
+                Add &amp; Save Product
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      updatePreviewRegion();
+
+      const closeBtn = quickAddModalHost.querySelector('[data-testid="quick-add-close-btn"]');
+      const catEl = quickAddModalHost.querySelector('[data-testid="quick-add-category"]');
+      const priceEl = quickAddModalHost.querySelector('[data-testid="quick-add-price"]');
+      const nameEnEl = quickAddModalHost.querySelector('[data-testid="quick-add-name-en"]');
+      const nameHeEl = quickAddModalHost.querySelector('[data-testid="quick-add-name-he"]');
+      const descHeEl = quickAddModalHost.querySelector('[data-testid="quick-add-desc-he"]');
+      const photoSelectEl = quickAddModalHost.querySelector('[data-testid="quick-add-photo-select"]');
+      const photoFileEl = quickAddModalHost.querySelector('[data-testid="quick-add-photo-file"]');
+      const toggleAllTagsBtn = quickAddModalHost.querySelector('[data-testid="quick-add-toggle-all-tags"]');
+      const saveProductBtn = quickAddModalHost.querySelector('[data-testid="quick-add-save-btn"]');
+
+      closeBtn?.addEventListener("click", () => {
+        quickAddModalHost.innerHTML = "";
+      });
+
+      catEl?.addEventListener("change", () => {
+        draft.category = catEl.value;
+        if (draft.category === "Pastry") {
+          draft.tagIds = [];
+        } else if (draft.category === "Coffee" || draft.category === "Cold") {
+          draft.tagIds = [...defaultCoffeeTagIds];
+        }
+        renderModal();
+      });
+
+      priceEl?.addEventListener("input", () => {
+        const num = Number(priceEl.value || 0);
+        draft.price = Number.isNaN(num) ? 0 : num;
+        updatePreviewRegion();
+      });
+
+      function clearErrorIfValid() {
+        if (draft.errorMsg && (draft.nameEn || "").trim() && (draft.nameHe || "").trim()) {
+          draft.errorMsg = "";
+          const errEl = quickAddModalHost.querySelector('[data-testid="quick-add-error"]');
+          if (errEl) errEl.remove();
+        }
+      }
+
+      nameEnEl?.addEventListener("input", () => {
+        draft.nameEn = nameEnEl.value;
+        clearErrorIfValid();
+        updatePreviewRegion();
+      });
+
+      nameHeEl?.addEventListener("input", () => {
+        draft.nameHe = nameHeEl.value;
+        clearErrorIfValid();
+        updatePreviewRegion();
+      });
+
+      descHeEl?.addEventListener("input", () => {
+        draft.descHe = descHeEl.value;
+        updatePreviewRegion();
+      });
+
+      photoSelectEl?.addEventListener("change", () => {
+        const val = photoSelectEl.value;
+        const opt = photoSelectEl.selectedOptions && photoSelectEl.selectedOptions[0];
+        const pid = opt ? opt.getAttribute("data-photo-id") : "";
+        draft.photo = val || "";
+        draft.photoId = pid || "";
+        updatePreviewRegion();
+      });
+
+      photoFileEl?.addEventListener("change", () => {
+        const file = photoFileEl.files && photoFileEl.files[0];
+        if (!file) return;
+        const baseName = (
+          draft.nameEn ||
+          draft.nameHe ||
+          (file.name || "Photo").replace(/\.[^.]+$/, "")
+        ).trim();
+        const label = baseName.endsWith("Photo") ? baseName : `${baseName} Photo`;
+        const p = compressImageFileToDataUrl(file, 400, 0.82).then((dataUrl) => {
+          const existingIds = new Set((store.photoAlbum || []).map((ph) => ph.id));
+          const newPhotoId = slugifyId("photo", label, existingIds);
+          const newPhoto = {
+            id: newPhotoId,
+            label,
+            name: label,
+            url: dataUrl,
+            dataUrl,
+          };
+          store.photoAlbum.push(newPhoto);
+          draft.photo = dataUrl;
+          draft.photoId = newPhotoId;
+          renderPhotosRegion();
+          refreshAllItemPhotoSelects();
+          markDirty();
+          renderModal();
+          return newPhoto;
+        });
+        if (typeof window !== "undefined") {
+          window.__lastPhotoUploadPromise = p;
+        }
+      });
+
+      toggleAllTagsBtn?.addEventListener("click", () => {
+        const allIds = (store.globalTags || []).map((t) => t.id);
+        const cur = new Set(draft.tagIds);
+        const isAll = allIds.length > 0 && allIds.every((id) => cur.has(id));
+        draft.tagIds = isAll ? [] : [...allIds];
+        renderModal();
+      });
+
+      quickAddModalHost.querySelectorAll("[data-quick-add-tag]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const tid = btn.getAttribute("data-quick-add-tag");
+          if (draft.tagIds.includes(tid)) {
+            draft.tagIds = draft.tagIds.filter((id) => id !== tid);
+          } else {
+            draft.tagIds.push(tid);
+          }
+          renderModal();
+        });
+      });
+
+      saveProductBtn?.addEventListener("click", () => {
+        const cleanEn = String(draft.nameEn || "").trim();
+        const cleanHe = String(draft.nameHe || "").trim();
+        if (!cleanEn || !cleanHe) {
+          draft.errorMsg = "Both English Name and Hebrew Name are required.";
+          renderModal();
+          return;
+        }
+        const existingIds = new Set((store.menuItems || []).map((i) => i.id));
+        const newItemId = slugifyId("item", cleanEn, existingIds);
+        store.menuItems.push({
+          id: newItemId,
+          category: draft.category || "Coffee",
+          nameEn: cleanEn,
+          titleEn: cleanEn,
+          nameHe: cleanHe,
+          titleHe: cleanHe,
+          descHe: String(draft.descHe || "").trim(),
+          price: Number(draft.price || 0),
+          inStock: true,
+          photo: draft.photo || "",
+          imageUrl: draft.photo || "",
+          photoUrl: draft.photo || "",
+          photoId: draft.photoId || "",
+          tagIds: [...draft.tagIds],
+        });
+        quickAddModalHost.innerHTML = "";
+        renderItemsRegion();
+        markDirty();
+        triggerSaveStore();
+      });
+    }
+
+    renderModal();
+  }
+
+  if (quickAddItemBtn) {
+    quickAddItemBtn.addEventListener("click", () => {
+      openQuickAddModal();
+    });
+  }
+
+  // Keyboard shortcut: Cmd/Ctrl + S to Save Changes
+  container.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && String(e.key || "").toLowerCase() === "s") {
+      e.preventDefault();
+      triggerSaveStore();
+    }
+  });
 
   // SPA navigation links
   container.addEventListener("click", (e) => {

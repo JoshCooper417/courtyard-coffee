@@ -292,7 +292,7 @@ Below are the **7 Core CUJs** formatted in our strict 4-part specification.
 
 ---
 
-### CUJ-07: Admin Spreadsheet — 400×400 Photo Compression & Menu/Tag CRUD (`/admin/menu` → `/`)
+### CUJ-07: Admin Spreadsheet & Guided Quick-Add — 400×400 Photo Compression & Streamlined Product Addition (`/admin/menu` → `/`)
 
 - **1. Set up**:
   - Run seed (`isOpen: true`).
@@ -300,24 +300,35 @@ Below are the **7 Core CUJs** formatted in our strict 4-part specification.
   - Open Page 2 at `http://localhost:3000/admin/menu` (`1280×800`, authenticated with PIN `"1234"`).
 
 - **2. What to do**:
-  1. In the **Photo Album Manager**, upload `test_upload_1000x800.png` with label `"Iced Matcha Photo"`.
-  2. In the **Global Tags Table**, add a new row: `nameEn: "Almond Milk"`, `nameHe: "חלב שקדים"`, `price: 2`, `inStock: true`.
-  3. In the **Menu Items Table**, add a new row: `category: "Coffee"`, `nameEn: "Iced Matcha"`, `nameHe: "מאצ׳ה אייס"`, `descHe: "מאצ׳ה יפנית על חלב קר"`, `price: 18`, `inStock: true`, select `"Iced Matcha Photo"` from the photo picker, and attach `"Almond Milk"` via the tags picker.
-  4. Save changes and capture screenshot `cuj07_admin_spreadsheet.png`.
-  5. Reload Page 1 (`http://localhost:3000/`), scroll to `"מאצ׳ה אייס"`, click **+ הוסף** to open its bottom-sheet, and capture screenshot `cuj07_customer_new_item.png`.
+  1. In the **Global Tags Table**, add a new row: `nameEn: "Almond Milk"`, `nameHe: "חלב שקדים"`, `price: 2`, `inStock: true`.
+  2. Verify spreadsheet row productivity shortcuts:
+     - Click **+ Add Menu Item** (`[data-testid="add-menu-item-btn"]`) and verify it auto-focuses the new row's `Name (EN)` input, defaults the photo selector to `— None —` (empty) instead of cloning Cappuccino's photo, and exposes all 4 storefront categories (`Coffee`, `Cold`, `Pastry`, `Other`).
+     - Click the row's **All / Clear** tag toggle (`[data-testid="toggle-all-item-tags-..."]`) to attach all 4 global tags in one click, then click it again to clear them.
+     - Click **Copy** (`[data-testid="duplicate-item-item-cappuccino"]`) on Cappuccino and verify it clones the row (`"Cappuccino (Copy)"` / `"קפוצ׳ינו (עותק)"`, `14 ₪`, with all 3 Cappuccino tags pre-attached) and auto-focuses the cloned `Name (EN)` input; then delete the temporary rows.
+  3. Click **+ Quick Add Product** (`[data-testid="quick-add-item-btn"]`) to open the guided Quick-Add modal (`[data-testid="quick-add-modal"]`):
+     - Click **Add & Save Product** (`[data-testid="quick-add-save-btn"]`) while names are empty and verify required-field validation (`[data-testid="quick-add-error"]`).
+     - Fill `category: "Coffee"`, `nameEn: "Iced Matcha"`, `nameHe: "מאצ׳ה אייס"`, `descHe: "מאצ׳ה יפנית על חלב קר"`, `price: 18`, and select only `"Almond Milk"` in the modal's tag pills.
+     - Upload `test_upload_1000x800.png` **directly inside the Quick-Add modal** (`[data-testid="quick-add-photo-file"]`) so it auto-compresses client-side to a `400×400` JPEG (`0.82`), creates `"Iced Matcha Photo"` in `store.photoAlbum`, and updates the live RTL Customer Storefront Card Preview (`[data-testid="quick-add-preview"]`).
+     - Capture screenshot `cuj07_quick_add_modal.png` while the modal is open.
+     - Click **Add & Save Product** (`[data-testid="quick-add-save-btn"]`) to add the item and persist to SQLite (`PUT /api/store`) in a single click.
+  4. Verify the updated spreadsheet (with inline row photo thumbnails `[data-testid="item-photo-thumb-..."]` and direct row upload buttons `[data-testid="item-photo-upload-..."]`) and capture screenshot `cuj07_admin_spreadsheet.png`.
+  5. Reload Page 1 (`http://localhost:3000/`), locate `"מאצ׳ה אייס"`, click **+ הוסף** to open its bottom-sheet, select `"חלב שקדים (+2 ₪)"`, and capture screenshot `cuj07_customer_new_item.png`.
 
 - **3. What output to receive**:
-  - **Screenshots (AI calls `read_file` on both)**:
+  - **Screenshots (AI calls `read_file` on all three)**:
+    - `../screenshots/cuj07_quick_add_modal.png`
     - `../screenshots/cuj07_admin_spreadsheet.png`
     - `../screenshots/cuj07_customer_new_item.png`
-  - **Runtime Telemetry**: `evaluate_script` inspecting the uploaded photo's Data URL prefix (`data:image/jpeg;base64,...`) and decoded `naturalWidth` × `naturalHeight`.
+  - **Runtime Telemetry**: `evaluate_script` inspecting the uploaded photo's Data URL prefix (`data:image/jpeg;base64,...`) and decoded `naturalWidth` × `naturalHeight`, plus `easyProductAdditionProof` telemetry.
   - **DOM Snapshot**: Store JSON Inspector text (`size` and raw JSON view).
 
 - **4. What to expect in the output**:
   - **AI Visual / Screenshot Expectations (`read_file`)**:
-    - In `cuj07_admin_spreadsheet.png`: The Store JSON Inspector shows a valid byte-size readout; the Photo Album thumbnail renders a square preview; the Global Tags and Menu Items spreadsheet tables cleanly display the new `"Almond Milk"` and `"Iced Matcha"` rows without layout overflow.
+    - In `cuj07_quick_add_modal.png`: The guided Quick-Add modal cleanly overlays the admin screen, showing the filled English/Hebrew fields, selected `"Almond Milk"` tag pill, and a live RTL Customer Storefront Card preview displaying `"מאצ׳ה אייס"`, `"₪18"`, and the newly uploaded `400×400` Matcha thumbnail.
+    - In `cuj07_admin_spreadsheet.png`: The Store JSON Inspector shows a valid byte-size readout; the Photo Album thumbnail renders a square preview; the Menu Items spreadsheet rows show inline `24×24` photo thumbnails, inline `+` upload buttons, `All` tag toggles, and `Copy` / `Delete` actions, all fitting within the `1280×800` viewport (`fitsIn800pxViewport: true`).
     - In `cuj07_customer_new_item.png`: The Customer storefront displays `"מאצ׳ה אייס"` with its square thumbnail and `18 ₪` price, and its open bottom-sheet shows `"חלב שקדים (+2 ₪)"`.
   - **DOM & Runtime Expectations**:
     - `compressImageFileToDataUrl()` converted the `1000×800` PNG into a `data:image/jpeg;base64,...` string with exact dimensions `400×400`.
+    - `easyProductAdditionProof` confirms auto-focus on new/duplicated rows, `All`/`Clear` bulk tag toggle, row duplication, inline photo thumbnail/upload, and one-step Quick-Add & Save.
   - **Network & Database Expectations**:
     - SQLite `store_state` JSON contains the new photo album entry, the new global tag, and the new menu item.

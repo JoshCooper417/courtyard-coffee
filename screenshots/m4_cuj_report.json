@@ -227,7 +227,7 @@
       "returnedToStorefront": true
     },
     "sqliteProof": {
-      "order101Row": "ord-101-7a34ae|101|דניאל|054-9876543|40.0|[{\"itemId\": \"item-croissant\", \"nameHe\": \"קרואסון חמאה\", \"titleHe\": \"קרואסון חמאה\", \"nameEn\": \"Butter Croissant\", \"titleEn\": \"Butter Croissant\", \"qty\": 2, \"unitPrice\": 12, \"lineTotal\": 24, \"tagsHe\": [], \"tagsEn\": [], \"selectedTagIds\": [], \"selectedTags\": [], \"note\": \"\"}, {\"itemId\": \"item-cappuccino\", \"nameHe\": \"קפוצ׳ינו\", \"titleHe\": \"קפוצ׳ינו\", \"nameEn\": \"Cappuccino\", \"titleEn\": \"Cappuccino\", \"qty\": 1, \"unitPrice\": 16, \"lineTotal\": 16, \"tagsHe\": [\"חלב שיבולת שועל\"], \"tagsEn\": [\"Oat Milk\"], \"selectedTagIds\": [\"tag-oat\"], \"selectedTags\": [{\"id\": \"tag-oat\", \"nameHe\": \"חלב שיבולת שועל\", \"labelHe\": \"חלב שיבולת שועל\", \"nameEn\": \"Oat Milk\", \"labelEn\": \"Oat Milk\", \"price\": 2, \"priceDelta\": 2}], \"note\": \"חם מאוד\"}]",
+      "order101Row": "ord-101-7d1ca3|101|דניאל|054-9876543|40.0|[{\"itemId\": \"item-croissant\", \"nameHe\": \"קרואסון חמאה\", \"titleHe\": \"קרואסון חמאה\", \"nameEn\": \"Butter Croissant\", \"titleEn\": \"Butter Croissant\", \"qty\": 2, \"unitPrice\": 12, \"lineTotal\": 24, \"tagsHe\": [], \"tagsEn\": [], \"selectedTagIds\": [], \"selectedTags\": [], \"note\": \"\"}, {\"itemId\": \"item-cappuccino\", \"nameHe\": \"קפוצ׳ינו\", \"titleHe\": \"קפוצ׳ינו\", \"nameEn\": \"Cappuccino\", \"titleEn\": \"Cappuccino\", \"qty\": 1, \"unitPrice\": 16, \"lineTotal\": 16, \"tagsHe\": [\"חלב שיבולת שועל\"], \"tagsEn\": [\"Oat Milk\"], \"selectedTagIds\": [\"tag-oat\"], \"selectedTags\": [{\"id\": \"tag-oat\", \"nameHe\": \"חלב שיבולת שועל\", \"labelHe\": \"חלב שיבולת שועל\", \"nameEn\": \"Oat Milk\", \"labelEn\": \"Oat Milk\", \"price\": 2, \"priceDelta\": 2}], \"note\": \"חם מאוד\"}]",
       "nextOrderNumberAfter101": 102
     },
     "screenshots": [
@@ -407,33 +407,66 @@
       "thumbComplete": true,
       "thumbNaturalWidth": 400,
       "thumbNaturalHeight": 400,
+      "previewCardIncludesHeName": true,
+      "previewImgNaturalWidth": 400,
+      "previewImgNaturalHeight": 400,
       "tempPhotoDeleted": true
     },
     "adminSpreadsheetCrud": {
-      "newTagId": "tag-custom-4",
-      "newItemId": "item-custom-3",
-      "deleteProof": {
-        "tempTagDeletedAndUnlinked": true,
-        "tempItemDeleted": true
-      },
+      "newItemId": "item-iced-matcha",
+      "itemPhotoThumbPresent": true,
+      "itemPhotoUploadPresent": true,
+      "quickAddModalClosedCleanly": true,
       "pinRotationProof": {
         "storedPinAfterRotateTo5678": "5678",
         "storedPinRestoredTo1234": "1234"
       },
       "statusBeforeSave": "Unsaved changes",
       "saveStatusAfter": "Saved ✓",
-      "byteSizeBadgeText": "115,749 bytes (113.0 KB)",
-      "exactBlobBytes": 115749,
+      "byteSizeBadgeText": "115,752 bytes (113.0 KB)",
+      "exactBlobBytes": 115752,
       "byteBadgeMatchesBlobSize": true,
       "overviewCountsText": "Items: 3 • Tags: 4 • Photos: 3",
-      "adminViewBottomPx": 715,
-      "fitsIn800pxViewport": true
+      "adminViewBottomPx": 735,
+      "fitsIn800pxViewport": true,
+      "newTagId": "tag-custom-4",
+      "deleteProof": {
+        "tempTagDeletedAndUnlinked": true,
+        "tempItemDeleted": true
+      },
+      "easyProductAdditionProof": {
+        "autoFocusedNewItemNameEn": true,
+        "defaultBlankPhotoValue": true,
+        "categoryOptionsOnRow": [
+          "Coffee",
+          "Cold",
+          "Pastry",
+          "Other"
+        ],
+        "allTagsSelectedCount": 4,
+        "allTagsClearedCount": 0,
+        "dupNameEnVal": "Cappuccino (Copy)",
+        "dupNameHeVal": "קפוצ׳ינו (עותק)",
+        "dupPriceVal": 14,
+        "dupSelectedTagsCount": 3,
+        "dupFocusedNameEn": true,
+        "itemPhotoThumbPresent": true,
+        "itemPhotoUploadPresent": true,
+        "quickAddModalOpen": true,
+        "quickAddValidationError": true,
+        "quickAddPreviewIncludesHeName": true,
+        "quickAddPreviewImgDimensions": [
+          400,
+          400
+        ],
+        "quickAddModalClosedCleanly": true
+      }
     },
     "sqliteStoreStateAfterSave": "1|102|3|4|3|Almond Milk|חלב שקדים|2|Iced Matcha|מאצ׳ה אייס|18|data:image/jpeg;base64,",
     "customerNewItemAndTagSheet": {
       "htmlDir": "rtl",
       "statusBadgeText": "פתוח להזמנות",
-      "matchaItemId": "item-custom-3",
+      "matchaItemId": "item-iced-matcha",
       "matchaTitleText": "מאצ׳ה אייס",
       "matchaDescText": "מאצ׳ה יפנית על חלב קר",
       "matchaPriceText": "₪18",
@@ -453,6 +486,7 @@
       }
     },
     "screenshots": [
+      "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj07_quick_add_modal.png",
       "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj07_admin_spreadsheet.png",
       "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/cuj07_customer_new_item.png"
     ]

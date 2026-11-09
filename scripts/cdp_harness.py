@@ -1248,65 +1248,8 @@ def run_m4_cuj07(cdp: CDPClient, report: dict):
         """
     )
 
-    # Step 2B: Set label to "Iced Matcha Photo" and upload 1000x800 PNG via CDP DOM.setFileInputFiles
-    cdp.evaluate(
-        """
-        (() => {
-          const labelInput = document.querySelector('[data-testid="new-photo-label-input"]');
-          labelInput.value = 'Iced Matcha Photo';
-          labelInput.dispatchEvent(new Event('input', { bubbles: true }));
-        })()
-        """
-    )
-    doc_root = cdp.call("DOM.getDocument", {"depth": 1})["root"]["nodeId"]
-    file_input_node = cdp.call(
-        "DOM.querySelector",
-        {
-            "nodeId": doc_root,
-            "selector": '[data-testid="new-photo-file-input"]',
-        },
-    )["nodeId"]
-    cdp.call(
-        "DOM.setFileInputFiles",
-        {
-            "nodeId": file_input_node,
-            "files": [test_upload_path],
-        },
-    )
-
-    # Wait for client-side compressImageFileToDataUrl(file, 400, 0.82) to complete and verify 400x400 JPEG
-    photo_upload_telemetry = cdp.evaluate(
-        """
-        (async () => {
-          for (let i = 0; i < 50; i++) {
-            if (window.__lastPhotoUploadPromise) break;
-            await new Promise(r => setTimeout(r, 50));
-          }
-          const uploadedPhoto = await window.__lastPhotoUploadPromise;
-          const imgEl = document.querySelector(`[data-testid="photo-img-${uploadedPhoto.id}"]`);
-          if (imgEl && !imgEl.complete) {
-            await new Promise(r => { imgEl.onload = r; imgEl.onerror = r; });
-          }
-          return {
-            photoId: uploadedPhoto.id,
-            label: uploadedPhoto.label,
-            dataUrlPrefix: uploadedPhoto.url.slice(0, 23),
-            dataUrlLength: uploadedPhoto.url.length,
-            thumbPresentInDom: Boolean(imgEl),
-            thumbComplete: Boolean(imgEl?.complete),
-            thumbNaturalWidth: imgEl?.naturalWidth || 0,
-            thumbNaturalHeight: imgEl?.naturalHeight || 0
-          };
-        })()
-        """
-    )
-    photo_upload_telemetry["tempPhotoDeleted"] = bool(temp_photo_deleted)
-
-    # Step 3: Add Global Tag ("Almond Milk" / "חלב שקדים", price: 2, inStock: true)
-    # Step 4: Add Menu Item ("Iced Matcha" / "מאצ׳ה אייס", descHe: "מאצ׳ה יפנית על חלב קר", price: 18, category: "Coffee",
-    #         photo: "Iced Matcha Photo", tag: "Almond Milk")
-    # Step 5: Click "Save Changes" ([data-testid="admin-save-btn"]) and await PUT /api/store
-    admin_crud_telemetry = cdp.evaluate(
+    # Step 2B: Add Global Tag ("Almond Milk" / "חלב שקדים", +2 NIS) and verify spreadsheet row productivity shortcuts
+    row_shortcuts_telemetry = cdp.evaluate(
         """
         (async () => {
           const setInput = (el, val) => {
@@ -1315,7 +1258,7 @@ def run_m4_cuj07(cdp: CDPClient, report: dict):
             el.dispatchEvent(new Event('change', { bubbles: true }));
           };
 
-          // Verify runtime Delete handlers for Photo, Global Tag (including cascade unlink), and Menu Item
+          // Verify runtime Delete handlers for Global Tag (including cascade unlink) and Menu Item
           document.querySelector('[data-testid="add-global-tag-btn"]').click();
           let allTagRows = Array.from(document.querySelectorAll('#admin-tags-tbody tr'));
           const tempTagId = allTagRows[allTagRows.length - 1].getAttribute('data-tag-id');
@@ -1324,6 +1267,43 @@ def run_m4_cuj07(cdp: CDPClient, report: dict):
           document.querySelector('[data-testid="add-menu-item-btn"]').click();
           let allItemRows = Array.from(document.querySelectorAll('#admin-items-tbody tr'));
           const tempItemId = allItemRows[allItemRows.length - 1].getAttribute('data-item-id');
+          const autoFocusedNewItemNameEn = (
+            document.activeElement === document.querySelector(`[data-testid="item-name-en-${tempItemId}"]`)
+          );
+          const defaultBlankPhotoValue = document.querySelector(`[data-testid="item-photo-${tempItemId}"]`)?.value === '';
+          const categoryOptionsOnRow = Array.from(
+            document.querySelector(`[data-testid="item-category-${tempItemId}"]`)?.options || []
+          ).map(o => o.value);
+
+          // Verify 1-click All / Clear tags toggle on row
+          const toggleAllTagsBtn = document.querySelector(`[data-testid="toggle-all-item-tags-${tempItemId}"]`);
+          if (toggleAllTagsBtn) toggleAllTagsBtn.click();
+          const allTagsSelectedCount = document.querySelectorAll(
+            `[data-item-tags-cell="${tempItemId}"] .admin-item-tag-pill.selected`
+          ).length;
+          const toggleAllTagsBtnAfterSelect = document.querySelector(`[data-testid="toggle-all-item-tags-${tempItemId}"]`);
+          if (toggleAllTagsBtnAfterSelect) toggleAllTagsBtnAfterSelect.click();
+          const allTagsClearedCount = document.querySelectorAll(
+            `[data-item-tags-cell="${tempItemId}"] .admin-item-tag-pill.selected`
+          ).length;
+
+          // Verify Row Duplicate button on Cappuccino clones category, price, and tags and focuses nameEn
+          const dupCapBtn = document.querySelector('[data-testid="duplicate-item-item-cappuccino"]');
+          if (dupCapBtn) dupCapBtn.click();
+          allItemRows = Array.from(document.querySelectorAll('#admin-items-tbody tr'));
+          const dupItemId = allItemRows[allItemRows.length - 1].getAttribute('data-item-id');
+          const dupNameEnVal = document.querySelector(`[data-testid="item-name-en-${dupItemId}"]`)?.value || '';
+          const dupNameHeVal = document.querySelector(`[data-testid="item-name-he-${dupItemId}"]`)?.value || '';
+          const dupPriceVal = Number(document.querySelector(`[data-testid="item-price-${dupItemId}"]`)?.value || 0);
+          const dupSelectedTagsCount = document.querySelectorAll(
+            `[data-item-tags-cell="${dupItemId}"] .admin-item-tag-pill.selected`
+          ).length;
+          const dupFocusedNameEn = (
+            document.activeElement === document.querySelector(`[data-testid="item-name-en-${dupItemId}"]`)
+          );
+          const delDupBtn = document.querySelector(`[data-testid="delete-item-${dupItemId}"]`);
+          if (delDupBtn && dupItemId !== tempItemId) delDupBtn.click();
+
           // Attach tempTagId to item-cappuccino, then delete tempTagId and verify cascade removal
           const capTempPill = document.querySelector(`[data-testid="item-tag-item-cappuccino-${tempTagId}"]`);
           if (capTempPill) capTempPill.click();
@@ -1348,35 +1328,143 @@ def run_m4_cuj07(cdp: CDPClient, report: dict):
           const tagStockEl = document.querySelector(`[data-testid="tag-instock-${newTagId}"]`);
           if (!tagStockEl.checked) tagStockEl.click();
 
-          // Add Menu Item
-          document.querySelector('[data-testid="add-menu-item-btn"]').click();
+          // Open Guided Quick-Add Product Modal ([data-testid="quick-add-item-btn"])
+          const quickAddOpenBtn = document.querySelector('[data-testid="quick-add-item-btn"]');
+          if (!quickAddOpenBtn) {
+            throw new Error('Missing [data-testid="quick-add-item-btn"] in AdminMenu');
+          }
+          quickAddOpenBtn.click();
+          const quickAddModalOpen = Boolean(document.querySelector('[data-testid="quick-add-modal"]'));
+
+          // Attempt empty save -> verify required-field validation error ([data-testid="quick-add-error"])
+          const quickAddSaveBtn = document.querySelector('[data-testid="quick-add-save-btn"]');
+          if (quickAddSaveBtn) quickAddSaveBtn.click();
+          const quickAddValidationError = Boolean(document.querySelector('[data-testid="quick-add-error"]'));
+
+          // Fill Iced Matcha details inside the Quick-Add modal
+          setInput(document.querySelector('[data-testid="quick-add-category"]'), 'Coffee');
+          setInput(document.querySelector('[data-testid="quick-add-name-en"]'), 'Iced Matcha');
+          setInput(document.querySelector('[data-testid="quick-add-name-he"]'), 'מאצ׳ה אייס');
+          setInput(document.querySelector('[data-testid="quick-add-desc-he"]'), 'מאצ׳ה יפנית על חלב קר');
+          setInput(document.querySelector('[data-testid="quick-add-price"]'), 18);
+
+          // Select only "Almond Milk" in the Quick-Add modal tag pills
+          const selectedModalPills = Array.from(
+            document.querySelectorAll('[data-testid="quick-add-modal"] [data-quick-add-tag].selected')
+          );
+          for (const pill of selectedModalPills) {
+            pill.click();
+          }
+          const almondModalPill = document.querySelector(`[data-testid="quick-add-tag-${newTagId}"]`);
+          if (almondModalPill && !almondModalPill.classList.contains('selected')) {
+            almondModalPill.click();
+          }
+
+          return {
+            newTagId,
+            autoFocusedNewItemNameEn,
+            defaultBlankPhotoValue,
+            categoryOptionsOnRow,
+            allTagsSelectedCount,
+            allTagsClearedCount,
+            dupNameEnVal,
+            dupNameHeVal,
+            dupPriceVal,
+            dupSelectedTagsCount,
+            dupFocusedNameEn,
+            tempTagDeletedAndUnlinked,
+            tempItemDeleted,
+            quickAddModalOpen,
+            quickAddValidationError
+          };
+        })()
+        """
+    )
+
+    # Step 3: Upload 1000x800 PNG directly inside the Quick-Add Modal ([data-testid="quick-add-photo-file"])
+    doc_root = cdp.call("DOM.getDocument", {"depth": 1})["root"]["nodeId"]
+    qa_file_node = cdp.call(
+        "DOM.querySelector",
+        {
+            "nodeId": doc_root,
+            "selector": '[data-testid="quick-add-photo-file"]',
+        },
+    )["nodeId"]
+    cdp.call(
+        "DOM.setFileInputFiles",
+        {
+            "nodeId": qa_file_node,
+            "files": [test_upload_path],
+        },
+    )
+
+    # Wait for client-side compressImageFileToDataUrl(file, 400, 0.82) to complete inside the Quick-Add modal
+    # and verify the live RTL Customer Storefront Card Preview updates with the 400x400 JPEG thumbnail
+    photo_upload_telemetry = cdp.evaluate(
+        """
+        (async () => {
+          for (let i = 0; i < 50; i++) {
+            if (window.__lastPhotoUploadPromise) break;
+            await new Promise(r => setTimeout(r, 50));
+          }
+          const uploadedPhoto = await window.__lastPhotoUploadPromise;
+          const imgEl = document.querySelector(`[data-testid="photo-img-${uploadedPhoto.id}"]`);
+          if (imgEl && !imgEl.complete) {
+            await new Promise(r => { imgEl.onload = r; imgEl.onerror = r; });
+          }
+          const previewImg = document.querySelector('[data-testid="quick-add-preview"] img.menu-thumb');
+          if (previewImg && !previewImg.complete) {
+            await new Promise(r => { previewImg.onload = r; previewImg.onerror = r; });
+          }
+          const previewText = document.querySelector('[data-testid="quick-add-preview"]')?.textContent?.trim() || '';
+          return {
+            photoId: uploadedPhoto.id,
+            label: uploadedPhoto.label,
+            dataUrlPrefix: uploadedPhoto.url.slice(0, 23),
+            dataUrlLength: uploadedPhoto.url.length,
+            thumbPresentInDom: Boolean(imgEl),
+            thumbComplete: Boolean(imgEl?.complete),
+            thumbNaturalWidth: imgEl?.naturalWidth || 0,
+            thumbNaturalHeight: imgEl?.naturalHeight || 0,
+            previewCardIncludesHeName: previewText.includes('מאצ׳ה אייס'),
+            previewImgNaturalWidth: previewImg?.naturalWidth || 0,
+            previewImgNaturalHeight: previewImg?.naturalHeight || 0
+          };
+        })()
+        """
+    )
+    photo_upload_telemetry["tempPhotoDeleted"] = bool(temp_photo_deleted)
+
+    # Capture screenshot of the Guided Quick-Add Modal open with the live RTL card preview
+    s_cuj07_modal = os.path.join(SCREENSHOTS_DIR, "cuj07_quick_add_modal.png")
+    cdp.screenshot(s_cuj07_modal)
+
+    # Step 4: Click "Add & Save Product" ([data-testid="quick-add-save-btn"]) in the modal
+    # to add Iced Matcha AND persist to SQLite in a single step, then verify PIN rotation & spreadsheet state
+    admin_crud_telemetry = cdp.evaluate(
+        """
+        (async () => {
+          const setInput = (el, val) => {
+            el.value = String(val);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          };
+
+          const statusBeforeSave = document.querySelector('[data-testid="admin-save-status"]')?.textContent?.trim();
+
+          // One-step Add & Save from the Quick-Add modal
+          const qaSaveBtn = document.querySelector('[data-testid="quick-add-save-btn"]');
+          qaSaveBtn.click();
+          if (window.__lastAdminSavePromise) {
+            await window.__lastAdminSavePromise;
+          }
+          const quickAddModalClosedCleanly = !document.querySelector('[data-testid="quick-add-modal"]');
+
           const itemRows = Array.from(document.querySelectorAll('#admin-items-tbody tr'));
           const newItemRow = itemRows[itemRows.length - 1];
           const newItemId = newItemRow.getAttribute('data-item-id');
-
-          setInput(document.querySelector(`[data-testid="item-category-${newItemId}"]`), 'Coffee');
-          setInput(document.querySelector(`[data-testid="item-name-en-${newItemId}"]`), 'Iced Matcha');
-          setInput(document.querySelector(`[data-testid="item-name-he-${newItemId}"]`), 'מאצ׳ה אייס');
-          setInput(document.querySelector(`[data-testid="item-desc-he-${newItemId}"]`), 'מאצ׳ה יפנית על חלב קר');
-          setInput(document.querySelector(`[data-testid="item-price-${newItemId}"]`), 18);
-          const itemStockEl = document.querySelector(`[data-testid="item-instock-${newItemId}"]`);
-          if (!itemStockEl.checked) itemStockEl.click();
-
-          // Select "Iced Matcha Photo" from the item photo dropdown
-          const photoSelect = document.querySelector(`[data-testid="item-photo-${newItemId}"]`);
-          const matchaOption = Array.from(photoSelect.options).find(opt => opt.textContent.trim() === 'Iced Matcha Photo');
-          if (matchaOption) {
-            photoSelect.value = matchaOption.value;
-            photoSelect.dispatchEvent(new Event('change', { bubbles: true }));
-          }
-
-          // Attach "Almond Milk" tag pill to the new menu item
-          const almondPill = document.querySelector(`[data-testid="item-tag-${newItemId}-${newTagId}"]`);
-          if (almondPill && !almondPill.classList.contains('selected')) {
-            almondPill.click();
-          }
-
-          const statusBeforeSave = document.querySelector('[data-testid="admin-save-status"]')?.textContent?.trim();
+          const itemPhotoThumbPresent = Boolean(document.querySelector(`[data-testid="item-photo-thumb-${newItemId}"]`));
+          const itemPhotoUploadPresent = Boolean(document.querySelector(`[data-testid="item-photo-upload-${newItemId}"]`));
 
           // Edge Case: Rotate Admin PIN 1234 -> 5678, Save Changes, verify localStorage sync ("5678"), then restore 1234
           setInput(document.querySelector('[data-testid="setting-admin-pin"]'), '5678');
@@ -1402,12 +1490,10 @@ def run_m4_cuj07(cdp: CDPClient, report: dict):
           const mainRect = document.querySelector('[data-testid="admin-menu-view"]')?.getBoundingClientRect();
 
           return {
-            newTagId,
             newItemId,
-            deleteProof: {
-              tempTagDeletedAndUnlinked,
-              tempItemDeleted
-            },
+            itemPhotoThumbPresent,
+            itemPhotoUploadPresent,
+            quickAddModalClosedCleanly,
             pinRotationProof: {
               storedPinAfterRotateTo5678,
               storedPinRestoredTo1234
@@ -1424,6 +1510,56 @@ def run_m4_cuj07(cdp: CDPClient, report: dict):
         })()
         """
     )
+
+    admin_crud_telemetry["newTagId"] = row_shortcuts_telemetry["newTagId"]
+    admin_crud_telemetry["deleteProof"] = {
+        "tempTagDeletedAndUnlinked": row_shortcuts_telemetry["tempTagDeletedAndUnlinked"],
+        "tempItemDeleted": row_shortcuts_telemetry["tempItemDeleted"],
+    }
+    admin_crud_telemetry["easyProductAdditionProof"] = {
+        "autoFocusedNewItemNameEn": row_shortcuts_telemetry["autoFocusedNewItemNameEn"],
+        "defaultBlankPhotoValue": row_shortcuts_telemetry["defaultBlankPhotoValue"],
+        "categoryOptionsOnRow": row_shortcuts_telemetry["categoryOptionsOnRow"],
+        "allTagsSelectedCount": row_shortcuts_telemetry["allTagsSelectedCount"],
+        "allTagsClearedCount": row_shortcuts_telemetry["allTagsClearedCount"],
+        "dupNameEnVal": row_shortcuts_telemetry["dupNameEnVal"],
+        "dupNameHeVal": row_shortcuts_telemetry["dupNameHeVal"],
+        "dupPriceVal": row_shortcuts_telemetry["dupPriceVal"],
+        "dupSelectedTagsCount": row_shortcuts_telemetry["dupSelectedTagsCount"],
+        "dupFocusedNameEn": row_shortcuts_telemetry["dupFocusedNameEn"],
+        "itemPhotoThumbPresent": admin_crud_telemetry["itemPhotoThumbPresent"],
+        "itemPhotoUploadPresent": admin_crud_telemetry["itemPhotoUploadPresent"],
+        "quickAddModalOpen": row_shortcuts_telemetry["quickAddModalOpen"],
+        "quickAddValidationError": row_shortcuts_telemetry["quickAddValidationError"],
+        "quickAddPreviewIncludesHeName": photo_upload_telemetry["previewCardIncludesHeName"],
+        "quickAddPreviewImgDimensions": [
+            photo_upload_telemetry["previewImgNaturalWidth"],
+            photo_upload_telemetry["previewImgNaturalHeight"],
+        ],
+        "quickAddModalClosedCleanly": admin_crud_telemetry["quickAddModalClosedCleanly"],
+    }
+
+    easy_proof = admin_crud_telemetry.get("easyProductAdditionProof", {})
+    if not (
+        easy_proof.get("autoFocusedNewItemNameEn")
+        and easy_proof.get("defaultBlankPhotoValue")
+        and easy_proof.get("categoryOptionsOnRow") == ["Coffee", "Cold", "Pastry", "Other"]
+        and easy_proof.get("allTagsSelectedCount") == 4
+        and easy_proof.get("allTagsClearedCount") == 0
+        and easy_proof.get("dupNameEnVal") == "Cappuccino (Copy)"
+        and easy_proof.get("dupNameHeVal") == "קפוצ׳ינו (עותק)"
+        and easy_proof.get("dupPriceVal") == 14
+        and easy_proof.get("dupSelectedTagsCount") == 3
+        and easy_proof.get("dupFocusedNameEn")
+        and easy_proof.get("itemPhotoThumbPresent")
+        and easy_proof.get("itemPhotoUploadPresent")
+        and easy_proof.get("quickAddModalOpen")
+        and easy_proof.get("quickAddValidationError")
+        and easy_proof.get("quickAddPreviewIncludesHeName")
+        and easy_proof.get("quickAddPreviewImgDimensions") == [400, 400]
+        and easy_proof.get("quickAddModalClosedCleanly")
+    ):
+        raise AssertionError(f"Admin easy product addition flow assertions failed: {easy_proof}")
 
     s_cuj07_1 = os.path.join(SCREENSHOTS_DIR, "cuj07_admin_spreadsheet.png")
     cdp.screenshot(s_cuj07_1)
@@ -1526,7 +1662,7 @@ def run_m4_cuj07(cdp: CDPClient, report: dict):
         "adminSpreadsheetCrud": admin_crud_telemetry,
         "sqliteStoreStateAfterSave": sqlite_cuj07_summary,
         "customerNewItemAndTagSheet": cuj07_customer_telemetry,
-        "screenshots": [s_cuj07_1, s_cuj07_2],
+        "screenshots": [s_cuj07_modal, s_cuj07_1, s_cuj07_2],
     }
 
 

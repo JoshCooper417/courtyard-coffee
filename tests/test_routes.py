@@ -535,8 +535,51 @@ class TestMilestone1And2Routes(unittest.TestCase):
         self.assertIn("item-desc-he-", admin_menu_js)
         self.assertIn("item-price-", admin_menu_js)
         self.assertIn("item-photo-", admin_menu_js)
+        self.assertIn("item-photo-thumb-", admin_menu_js)
+        self.assertIn("item-photo-upload-", admin_menu_js)
         self.assertIn("item-tag-", admin_menu_js)
+        self.assertIn("toggle-all-item-tags-", admin_menu_js)
+        self.assertIn("duplicate-item-", admin_menu_js)
         self.assertIn("delete-item-", admin_menu_js)
+        self.assertIn('data-testid="quick-add-item-btn"', admin_menu_js)
+        self.assertIn('data-testid="quick-add-modal"', admin_menu_js)
+
+    def test_admin_easy_product_addition_flow_contracts(self):
+        admin_menu_js = (ROOT_DIR / "src" / "routes" / "AdminMenu.js").read_text(encoding="utf-8")
+        # 1. Inline row photo thumbnail preview & direct row photo upload
+        self.assertIn("item-photo-thumb-", admin_menu_js)
+        self.assertIn("item-photo-upload-", admin_menu_js)
+        self.assertIn("data-item-photo-upload", admin_menu_js)
+
+        # 2. Row duplication & 1-click bulk tag attachment/clearing
+        self.assertIn("duplicate-item-", admin_menu_js)
+        self.assertIn("data-duplicate-item", admin_menu_js)
+        self.assertIn("toggle-all-item-tags-", admin_menu_js)
+        self.assertIn("data-toggle-all-item-tags", admin_menu_js)
+
+        # 3. Full storefront category options (Coffee, Cold, Pastry, Other)
+        for cat in ("Coffee", "Cold", "Pastry", "Other"):
+            self.assertIn(f'<option value="{cat}"', admin_menu_js)
+
+        # 4. Auto-focus on new/duplicated row & Ctrl/Cmd+S keyboard save shortcut
+        self.assertIn("focusItemNameInput", admin_menu_js)
+        self.assertIn("e.metaKey || e.ctrlKey", admin_menu_js)
+
+        # 5. Guided Quick-Add Product Modal with live RTL MenuItemCard preview & 1-step Add & Save
+        self.assertIn("renderMenuItemCard", admin_menu_js)
+        self.assertIn('data-testid="quick-add-item-btn"', admin_menu_js)
+        self.assertIn('data-testid="quick-add-modal"', admin_menu_js)
+        self.assertIn('data-testid="quick-add-category"', admin_menu_js)
+        self.assertIn('data-testid="quick-add-name-en"', admin_menu_js)
+        self.assertIn('data-testid="quick-add-name-he"', admin_menu_js)
+        self.assertIn('data-testid="quick-add-desc-he"', admin_menu_js)
+        self.assertIn('data-testid="quick-add-price"', admin_menu_js)
+        self.assertIn('data-testid="quick-add-photo-select"', admin_menu_js)
+        self.assertIn('data-testid="quick-add-photo-file"', admin_menu_js)
+        self.assertIn('data-testid="quick-add-toggle-all-tags"', admin_menu_js)
+        self.assertIn('data-testid="quick-add-preview"', admin_menu_js)
+        self.assertIn('data-testid="quick-add-error"', admin_menu_js)
+        self.assertIn('data-testid="quick-add-save-btn"', admin_menu_js)
 
     def test_admin_pin_header_enforcement_and_vercel_entrypoint(self):
         from http.server import BaseHTTPRequestHandler
