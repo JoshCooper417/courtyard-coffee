@@ -232,7 +232,7 @@ export function mountKdsRoute(container, initialStore) {
     host.innerHTML = `
       <div class="kds-quick86-strip" data-testid="kds-quick86-strip">
         <div class="kds-quick86-group">
-          <span class="kds-quick86-title">Quick-86 Modifiers:</span>
+          <span class="kds-quick86-title">Modifiers Stock:</span>
           <div class="kds-quick86-pills">
             ${globalTags
               .map((tag) => {
@@ -248,7 +248,7 @@ export function mountKdsRoute(container, initialStore) {
                   >
                     <span class="${inStock ? "kds-stock-name" : "tag-strike"}">${escapeHtml(nameEn)}</span>
                     <span class="kds-86-badge ${inStock ? "stock-ok" : "stock-out"}">
-                      ${inStock ? "In Stock" : "86'd"}
+                      ${inStock ? "In Stock" : "Out of Stock"}
                     </span>
                   </button>
                 `;
@@ -258,7 +258,7 @@ export function mountKdsRoute(container, initialStore) {
         </div>
 
         <div class="kds-quick86-group">
-          <span class="kds-quick86-title">Quick-86 Menu Items:</span>
+          <span class="kds-quick86-title">Menu Items Stock:</span>
           <div class="kds-quick86-pills">
             ${menuItems
               .map((item) => {
@@ -274,7 +274,7 @@ export function mountKdsRoute(container, initialStore) {
                   >
                     <span class="${inStock ? "kds-stock-name" : "tag-strike"}">${escapeHtml(nameEn)}</span>
                     <span class="kds-86-badge ${inStock ? "stock-ok" : "stock-out"}">
-                      ${inStock ? "In Stock" : "86'd"}
+                      ${inStock ? "In Stock" : "Out of Stock"}
                     </span>
                   </button>
                 `;
