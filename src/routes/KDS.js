@@ -184,15 +184,40 @@ export function mountKdsRoute(container, initialStore) {
 
     const noteInput = controlsRegion.querySelector('[data-testid="kds-closed-note-input"]');
     if (noteInput) {
-      const saveNote = () => {
+      let lastSavedNote = currentNote;
+      let noteDebounceTimer = null;
+
+      const flushNote = () => {
+        if (noteDebounceTimer) {
+          clearTimeout(noteDebounceTimer);
+          noteDebounceTimer = null;
+        }
         const val = noteInput.value;
         store.closedNoteHe = val;
         store.closedMessageHe = val;
-        persistStore(store);
+        if (val === lastSavedNote && window.__lastStoreSavePromise) {
+          return window.__lastStoreSavePromise;
+        }
+        lastSavedNote = val;
+        return persistStore(store);
       };
-      noteInput.addEventListener("input", saveNote);
-      noteInput.addEventListener("change", saveNote);
-      noteInput.addEventListener("blur", saveNote);
+
+      const scheduleDebouncedNoteSave = () => {
+        const val = noteInput.value;
+        store.closedNoteHe = val;
+        store.closedMessageHe = val;
+        if (noteDebounceTimer) {
+          clearTimeout(noteDebounceTimer);
+        }
+        noteDebounceTimer = setTimeout(() => {
+          noteDebounceTimer = null;
+          flushNote();
+        }, 250);
+      };
+
+      noteInput.addEventListener("input", scheduleDebouncedNoteSave);
+      noteInput.addEventListener("change", flushNote);
+      noteInput.addEventListener("blur", flushNote);
     }
 
     renderQuick86Host();

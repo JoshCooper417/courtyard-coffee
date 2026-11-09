@@ -37,6 +37,9 @@ export function playGentleChime() {
       osc.start(now + idx * 0.14);
       osc.stop(now + idx * 0.14 + 0.46);
     });
+    if (typeof window !== "undefined") {
+      window.__chimeSynthSuccessCount = (window.__chimeSynthSuccessCount || 0) + 1;
+    }
     return true;
   } catch (_err) {
     return false;

@@ -472,11 +472,19 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
 
 def run_m3_cujs(cdp: CDPClient, report: dict):
     """
-    Executes Milestone 3 Admin 4-Digit PIN Gate & Barista KDS CUJ-04, CUJ-05, and CUJ-06
-    against the live database containing Order #101 from CUJ-03, capturing all 8 required
-    screenshots and recording full DOM, runtime, network, and SQLite telemetry.
+    Executes Milestone 3 Admin 4-Digit PIN Gate & Barista KDS CUJ-04, CUJ-05, and CUJ-06,
+    capturing all 8 required screenshots (each with a distinct state and SHA-256) and
+    recording full DOM, runtime, network, and SQLite telemetry.
     """
     db_file = os.path.join(ROOT_DIR, "db", "data.db")
+
+    # Reseed before CUJ-04 so CUJ-04 unlocks into a clean shift state (Next Order #101, empty queue)
+    # and CUJ-05 triggers a genuine live incoming Order #101 via POST /api/order while /admin/kds is open.
+    subprocess.run(
+        ["/usr/bin/python3", os.path.join(ROOT_DIR, "scripts", "seed.py")],
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
 
     # -------------------------------------------------------------------------
     # CUJ-04: Admin 4-Digit PIN Gate & Persistence (/admin/kds & /admin/menu)
@@ -526,12 +534,13 @@ def run_m3_cujs(cdp: CDPClient, report: dict):
         """
         (async () => {
           window.__chimeCount = 0;
+          window.__chimeSynthSuccessCount = 0;
           const input = document.querySelector('[data-testid="pin-input"]');
           const form = document.querySelector('#pin-gate-form');
           input.value = '1234';
           form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
           for (let i = 0; i < 60; i++) {
-            if (document.querySelector('[data-testid="kds-view"]') && document.querySelector('[data-testid="kds-ticket-101"]')) {
+            if (document.querySelector('[data-testid="kds-view"]') && document.querySelector('[data-testid="kds-empty-state"]')) {
               break;
             }
             await new Promise(r => setTimeout(r, 50));
@@ -540,9 +549,9 @@ def run_m3_cujs(cdp: CDPClient, report: dict):
             htmlDir: document.documentElement.getAttribute('dir'),
             pinModalPresent: Boolean(document.querySelector('[data-testid="pin-gate-modal"]')),
             kdsViewPresent: Boolean(document.querySelector('[data-testid="kds-view"]')),
-            ticket101Loaded: Boolean(document.querySelector('[data-testid="kds-ticket-101"]')),
+            emptyQueueStatePresent: Boolean(document.querySelector('[data-testid="kds-empty-state"]')),
             storedPin: localStorage.getItem('adminPin'),
-            chimeCountOnInitialLoad: window.__chimeCount || 0
+            chimeCountWhenEmpty: window.__chimeCount || 0
           };
         })()
         """
@@ -576,25 +585,58 @@ def run_m3_cujs(cdp: CDPClient, report: dict):
     # CUJ-05: Barista KDS — Audio Chime & 2-Tap Ticket Lifecycle (/admin/kds)
     # -------------------------------------------------------------------------
     cdp.navigate_and_wait(f"http://127.0.0.1:{SERVER_PORT}/admin/kds", '[data-testid="kds-view"]')
-    # Wait for initial ticket #101 render, then arm __chimeCount = 0 + __resetKdsSeenOrders()
-    # and wait for the real 2000ms setInterval poll to fire playGentleChime()
     cdp.evaluate(
         """
-        (async () => {
-          for (let i = 0; i < 40; i++) {
-            if (document.querySelector('[data-testid="kds-ticket-101"]')) break;
-            await new Promise(r => setTimeout(r, 50));
-          }
+        (() => {
           window.__chimeCount = 0;
-          if (typeof window.__resetKdsSeenOrders === 'function') {
-            window.__resetKdsSeenOrders();
-          }
+          window.__chimeSynthSuccessCount = 0;
           window.open = (url) => {
             window.__lastWindowOpenUrl = url;
             return null;
           };
+        })()
+        """
+    )
+
+    # Submit genuine live Order #101 via POST /api/order while /admin/kds is open & polling every 2000ms
+    order_req_body = json.dumps(
+        {
+            "customerName": "דניאל",
+            "customerPhone": "054-9876543",
+            "items": [
+                {
+                    "itemId": "item-croissant",
+                    "qty": 2,
+                    "selectedTagIds": [],
+                    "note": "",
+                },
+                {
+                    "itemId": "item-cappuccino",
+                    "qty": 1,
+                    "selectedTagIds": ["tag-oat"],
+                    "note": "חם מאוד",
+                },
+            ],
+        }
+    ).encode("utf-8")
+    order_req = urllib.request.Request(
+        f"http://127.0.0.1:{SERVER_PORT}/api/order",
+        data=order_req_body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(order_req, timeout=5.0) as resp:
+        created_live_order = json.loads(resp.read().decode("utf-8"))
+
+    # Wait for the real 2000ms setInterval poll on /admin/kds to detect Order #101,
+    # render [data-testid="kds-ticket-101"], and fire playGentleChime()
+    cdp.evaluate(
+        """
+        (async () => {
           for (let i = 0; i < 35; i++) {
-            if ((window.__chimeCount || 0) >= 1) break;
+            if (document.querySelector('[data-testid="kds-ticket-101"]') && (window.__chimeCount || 0) >= 1) {
+              break;
+            }
             await new Promise(r => setTimeout(r, 100));
           }
         })()
@@ -625,6 +667,7 @@ def run_m3_cujs(cdp: CDPClient, report: dict):
 
           return {
             chimeCountAfter2sPoll: window.__chimeCount || 0,
+            chimeSynthSuccessCount: window.__chimeSynthSuccessCount || 0,
             ticketPresent: Boolean(ticket),
             ticketNumberText: document.querySelector('[data-testid="kds-ticket-number-101"]')?.textContent?.trim(),
             ticketStatusText: document.querySelector('[data-testid="kds-ticket-status-101"]')?.textContent?.trim(),
@@ -648,6 +691,7 @@ def run_m3_cujs(cdp: CDPClient, report: dict):
         })()
         """
     )
+    cuj05_active["liveSubmittedOrderNumber"] = created_live_order.get("number")
 
     # Tap 1: Click "Notify on WhatsApp" on Ticket #101
     cuj05_notified = cdp.evaluate(
@@ -737,12 +781,14 @@ def run_m3_cujs(cdp: CDPClient, report: dict):
           openToggle.click();
           if (window.__lastStoreSavePromise) await window.__lastStoreSavePromise;
 
+          const apiStoreBeforeNote = performance.getEntriesByType('resource').filter(r => r.name.includes('/api/store')).length;
           const noteInput = document.querySelector('[data-testid="kds-closed-note-input"]');
           noteInput.value = 'יצאנו להפסקת צהריים, נחזור ב-14:00';
           noteInput.dispatchEvent(new Event('input', { bubbles: true }));
           noteInput.dispatchEvent(new Event('change', { bubbles: true }));
           noteInput.dispatchEvent(new Event('blur', { bubbles: true }));
           if (window.__lastStoreSavePromise) await window.__lastStoreSavePromise;
+          const apiStoreAfterNote = performance.getEntriesByType('resource').filter(r => r.name.includes('/api/store')).length;
 
           const oatAfter = document.querySelector('[data-testid="quick86-tag-tag-oat"]');
           const croissantAfter = document.querySelector('[data-testid="quick86-item-item-croissant"]');
@@ -750,6 +796,7 @@ def run_m3_cujs(cdp: CDPClient, report: dict):
             statusBadgeText: document.querySelector('[data-testid="kds-status-badge"]')?.textContent?.trim(),
             openToggleBtnText: document.querySelector('[data-testid="kds-open-toggle"]')?.textContent?.trim(),
             closedNoteInputValue: noteInput.value,
+            closedNotePutRequestCount: apiStoreAfterNote - apiStoreBeforeNote,
             oatOutOfStockClass: Boolean(oatAfter?.classList.contains('out-of-stock')),
             oatText: oatAfter?.textContent?.replace(/\\s+/g, ' ')?.trim(),
             croissantOutOfStockClass: Boolean(croissantAfter?.classList.contains('out-of-stock')),
