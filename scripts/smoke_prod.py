@@ -54,14 +54,33 @@ def run_smoke(base_url: str, admin_pin: str) -> dict:
     assert status_js == 200 and "mountCustomerRoute" in body_js, "Failed to load /src/main.js"
     status_css, _, body_css = request(base_url, "GET", "/src/index.css")
     assert status_css == 200 and "--bg-courtyard" in body_css, "Failed to load /src/index.css"
-    report["static_assets"] = {"main_js": status_js, "index_css": status_css}
 
-    # 2. Verify GET /api/store
+    utility_statuses = {}
+    for util_path in ["/src/state.js", "/src/utils/qr.js", "/src/utils/wa.js", "/src/utils/chime.js", "/src/utils/image.js"]:
+        st_u, _, body_u = request(base_url, "GET", util_path)
+        assert st_u == 200 and len(body_u) > 100, f"Failed to load {util_path} (status {st_u})"
+        utility_statuses[util_path] = st_u
+
+    report["static_assets"] = {
+        "main_js": status_js,
+        "index_css": status_css,
+        "utilities": utility_statuses,
+    }
+
+    # 2. Verify GET /api/store & OPTIONS preflight
+    status_opt, opt_headers, _ = request(base_url, "OPTIONS", "/api/store")
+    assert status_opt in (200, 204), f"OPTIONS /api/store failed with {status_opt}"
+    allow_headers = opt_headers.get("Access-Control-Allow-Headers") or opt_headers.get("access-control-allow-headers", "")
+
     status_store, _, body_store = request(base_url, "GET", "/api/store")
     assert status_store == 200, f"GET /api/store failed with {status_store}: {body_store}"
     store = json.loads(body_store)
+    assert isinstance(store.get("isOpen"), bool), "store.isOpen must be boolean"
+    assert int(store.get("nextOrderNumber", 0)) >= 101, "store.nextOrderNumber must be >= 101"
     report["get_store"] = {
         "status": status_store,
+        "optionsPreflightStatus": status_opt,
+        "corsAllowHeaders": allow_headers,
         "isOpen": store.get("isOpen"),
         "nextOrderNumber": store.get("nextOrderNumber"),
         "menuItemsCount": len(store.get("menuItems", [])),
@@ -69,18 +88,71 @@ def run_smoke(base_url: str, admin_pin: str) -> dict:
         "photoAlbumCount": len(store.get("photoAlbum", [])),
     }
 
-    # 3. Verify Admin PIN security on PUT /api/store (wrong header -> 401)
+    # 3. Verify Admin PIN security on all admin write endpoints (wrong header -> 401)
     status_no_pin, _, _ = request(base_url, "PUT", "/api/store", payload=store)
-    status_bad_pin, _, body_bad_pin = request(
+    status_bad_pin_store, _, body_bad_pin = request(
         base_url, "PUT", "/api/store", payload=store, headers={"X-Admin-Pin": "0000-wrong"}
     )
-    assert status_bad_pin == 401, f"Expected 401 for wrong PIN, got {status_bad_pin}: {body_bad_pin}"
+    assert status_bad_pin_store == 401, f"Expected 401 for wrong PIN on PUT /api/store, got {status_bad_pin_store}: {body_bad_pin}"
+
+    status_bad_pin_patch, _, _ = request(
+        base_url,
+        "PATCH",
+        "/api/orders/ord-nonexistent-smoke",
+        payload={"isNotified": True},
+        headers={"X-Admin-Pin": "0000-wrong"},
+    )
+    assert status_bad_pin_patch == 401, f"Expected 401 for wrong PIN on PATCH /api/orders/:id, got {status_bad_pin_patch}"
+
+    status_bad_pin_reset, _, _ = request(
+        base_url,
+        "POST",
+        "/api/orders/reset",
+        payload={},
+        headers={"X-Admin-Pin": "0000-wrong"},
+    )
+    assert status_bad_pin_reset == 401, f"Expected 401 for wrong PIN on POST /api/orders/reset, got {status_bad_pin_reset}"
+
     report["pin_security"] = {
         "missingPinStatus": status_no_pin,
-        "wrongPinStatus": status_bad_pin,
+        "wrongPinPutStoreStatus": status_bad_pin_store,
+        "wrongPinPatchOrderStatus": status_bad_pin_patch,
+        "wrongPinResetOrdersStatus": status_bad_pin_reset,
     }
 
-    # 4. If no active orders exist and store is open, run non-destructive order + reset smoke test
+    # 4. Non-destructive negative API validation guards (always safe even when live orders exist)
+    status_empty_name, _, _ = request(
+        base_url,
+        "POST",
+        "/api/order",
+        payload={"customerName": "   ", "customerPhone": "054-0000000", "items": [{"itemId": "item-cappuccino", "qty": 1}]},
+    )
+    assert status_empty_name == 400, f"Expected 400 for empty customerName, got {status_empty_name}"
+
+    status_empty_items, _, _ = request(
+        base_url,
+        "POST",
+        "/api/order",
+        payload={"customerName": "בדיקה", "customerPhone": "054-0000000", "items": []},
+    )
+    assert status_empty_items == 400, f"Expected 400 for empty items list, got {status_empty_items}"
+
+    status_unknown_order, _, _ = request(
+        base_url,
+        "PATCH",
+        "/api/orders/ord-nonexistent-smoke",
+        payload={"isNotified": True},
+        headers={"X-Admin-Pin": admin_pin},
+    )
+    assert status_unknown_order == 404, f"Expected 404 for unknown order PATCH, got {status_unknown_order}"
+
+    report["negative_validation_guards"] = {
+        "emptyCustomerNameStatus": status_empty_name,
+        "emptyItemsStatus": status_empty_items,
+        "unknownOrderPatchStatus": status_unknown_order,
+    }
+
+    # 5. If no active orders exist and store is open, run non-destructive order + 2-tap PATCH + reset smoke test
     _, _, body_existing_orders = request(base_url, "GET", "/api/orders")
     existing_orders = json.loads(body_existing_orders)
     if store.get("isOpen") and len(existing_orders) == 0:
@@ -100,15 +172,26 @@ def run_smoke(base_url: str, admin_pin: str) -> dict:
         created = json.loads(body_order)
         order_id = created["id"]
 
-        status_patch, _, body_patch = request(
+        status_tap1, _, body_tap1 = request(
             base_url,
             "PATCH",
             f"/api/orders/{order_id}",
-            payload={"isNotified": True, "isDone": True, "status": "done"},
+            payload={"isNotified": True},
             headers={"X-Admin-Pin": admin_pin},
         )
-        assert status_patch == 200, (
-            f"PATCH /api/orders/{order_id} failed with {status_patch}: {body_patch}"
+        assert status_tap1 == 200, (
+            f"PATCH Tap 1 /api/orders/{order_id} failed with {status_tap1}: {body_tap1}"
+        )
+
+        status_tap2, _, body_tap2 = request(
+            base_url,
+            "PATCH",
+            f"/api/orders/{order_id}",
+            payload={"isDone": True, "status": "done"},
+            headers={"X-Admin-Pin": admin_pin},
+        )
+        assert status_tap2 == 200, (
+            f"PATCH Tap 2 /api/orders/{order_id} failed with {status_tap2}: {body_tap2}"
         )
 
         status_reset, _, body_reset = request(
@@ -122,6 +205,8 @@ def run_smoke(base_url: str, admin_pin: str) -> dict:
         report["order_lifecycle_and_reset"] = {
             "mode": "full_order_and_reset",
             "createdOrderId": order_id,
+            "tap1Status": status_tap1,
+            "tap2Status": status_tap2,
             "resetStatus": status_reset,
         }
     else:

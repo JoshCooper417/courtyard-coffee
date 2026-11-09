@@ -598,6 +598,155 @@ class TestMilestone1And2Routes(unittest.TestCase):
             else:
                 os.environ["REQUIRE_ADMIN_PIN"] = old_req
 
+    def test_negative_order_validation_and_error_guards(self):
+        # 1. Empty / whitespace customerName -> 400
+        st_name, err_name = self._request_json(
+            "POST",
+            "/api/order",
+            {
+                "customerName": "   ",
+                "customerPhone": "054-9876543",
+                "items": [{"itemId": "item-cappuccino", "qty": 1}],
+            },
+        )
+        self.assertEqual(st_name, 400)
+        self.assertIn("Customer name is required", err_name.get("error", ""))
+
+        # 2. Empty items list -> 400
+        st_items, err_items = self._request_json(
+            "POST",
+            "/api/order",
+            {
+                "customerName": "דניאל",
+                "customerPhone": "054-9876543",
+                "items": [],
+            },
+        )
+        self.assertEqual(st_items, 400)
+        self.assertIn("At least one order item is required", err_items.get("error", ""))
+
+        # 3. PATCH unknown order ID -> 404
+        st_patch_404, err_patch_404 = self._request_json(
+            "PATCH",
+            "/api/orders/ord-nonexistent-999",
+            {"isNotified": True},
+            extra_headers={"X-Admin-Pin": "1234"},
+        )
+        self.assertEqual(st_patch_404, 404)
+        self.assertIn("Order not found", err_patch_404.get("error", ""))
+
+        # 4. Payload exceeding MAX_BODY_BYTES (2 MB) -> 400
+        oversized_payload = {"closedNoteHe": "א" * (2 * 1024 * 1024 + 128)}
+        st_large, err_large = self._request_json(
+            "PUT",
+            "/api/store",
+            oversized_payload,
+            extra_headers={"X-Admin-Pin": "1234"},
+        )
+        self.assertEqual(st_large, 400)
+        self.assertIn("Payload exceeds maximum allowed size", err_large.get("error", ""))
+
+        # 5. OPTIONS preflight -> 204 and unknown API routes -> 404
+        st_opt, _ = self._raw_http_request("OPTIONS", "/api/store")
+        self.assertEqual(st_opt, 204)
+
+        for method in ("POST", "PUT", "PATCH"):
+            st_unk, err_unk = self._request_json(method, "/api/unknown-route", {})
+            self.assertEqual(st_unk, 404)
+            self.assertIn("Not found", err_unk.get("error", ""))
+
+    def test_admin_pin_rotation_and_five_attempt_lockout_contract(self):
+        _, store = self._request_json("GET", "/api/store")
+        self.assertEqual(store["adminPin"], "1234")
+
+        # Rotate PIN from 1234 -> 5678 authenticating with current PIN 1234
+        store["adminPin"] = "5678"
+        st_rot, updated = self._request_json(
+            "PUT",
+            "/api/store",
+            store,
+            extra_headers={"X-Admin-Pin": "1234"},
+        )
+        self.assertEqual(st_rot, 200)
+        self.assertEqual(updated["adminPin"], "5678")
+
+        # Old PIN 1234 must now be rejected with 401
+        st_old, _ = self._request_json(
+            "PUT",
+            "/api/store",
+            updated,
+            extra_headers={"X-Admin-Pin": "1234"},
+        )
+        self.assertEqual(st_old, 401)
+
+        # New PIN 5678 must succeed with 200
+        updated["closedNoteHe"] = "עודכן עם פין חדש"
+        st_new, updated_2 = self._request_json(
+            "PUT",
+            "/api/store",
+            updated,
+            extra_headers={"X-Admin-Pin": "5678"},
+        )
+        self.assertEqual(st_new, 200)
+        self.assertEqual(updated_2["closedNoteHe"], "עודכן עם פין חדש")
+
+        # Verify 5-attempt lockout & localStorage rotation sync in frontend contracts
+        pin_modal_js = (ROOT_DIR / "src" / "components" / "PinGateModal.js").read_text(encoding="utf-8")
+        self.assertIn("maxAttempts = 5", pin_modal_js)
+        self.assertIn("data-locked-out", pin_modal_js)
+        self.assertIn("Too many failed attempts (5/5)", pin_modal_js)
+        self.assertIn("Locked Out", pin_modal_js)
+
+        state_js = (ROOT_DIR / "src" / "state.js").read_text(encoding="utf-8")
+        self.assertIn('localStorage.setItem("adminPin", String(updated.adminPin))', state_js)
+
+    def test_smoke_prod_verifier_in_memory_harness(self):
+        from unittest.mock import patch
+        from scripts.smoke_prod import run_smoke
+
+        def fake_request(base_url, method, path, payload=None, headers=None):
+            body_bytes = b""
+            req_headers = ["Host: 127.0.0.1:3000", "Connection: close"]
+            if headers:
+                for k, v in headers.items():
+                    req_headers.append(f"{k}: {v}")
+            if payload is not None:
+                body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+                req_headers.append("Content-Type: application/json")
+                req_headers.append(f"Content-Length: {len(body_bytes)}")
+            request_head = f"{method} {path} HTTP/1.1\r\n" + "\r\n".join(req_headers) + "\r\n\r\n"
+            sock = _InMemorySocket(request_head.encode("utf-8") + body_bytes)
+
+            class BoundHandler(CourtyardRequestHandler):
+                pass
+
+            BoundHandler.db_path = self.db_path
+            BoundHandler(sock, ("127.0.0.1", 55555), _DummyServer())
+            raw_response = sock._wfile.getvalue()
+            head_bytes, _, resp_body = raw_response.partition(b"\r\n\r\n")
+            lines = head_bytes.decode("iso-8859-1").splitlines()
+            status_code = int(lines[0].split(" ")[1])
+            resp_headers = {}
+            for hline in lines[1:]:
+                if ":" in hline:
+                    hk, hv = hline.split(":", 1)
+                    resp_headers[hk.strip()] = hv.strip()
+            return status_code, resp_headers, resp_body.decode("utf-8", errors="replace")
+
+        with patch("scripts.smoke_prod.request", side_effect=fake_request):
+            report = run_smoke("http://127.0.0.1:3000", "1234")
+            self.assertEqual(report["overall"], "PASS")
+            self.assertEqual(report["pin_security"]["wrongPinPutStoreStatus"], 401)
+            self.assertEqual(report["pin_security"]["wrongPinPatchOrderStatus"], 401)
+            self.assertEqual(report["pin_security"]["wrongPinResetOrdersStatus"], 401)
+            self.assertEqual(report["negative_validation_guards"]["emptyCustomerNameStatus"], 400)
+            self.assertEqual(report["negative_validation_guards"]["emptyItemsStatus"], 400)
+            self.assertEqual(report["negative_validation_guards"]["unknownOrderPatchStatus"], 404)
+            self.assertEqual(report["order_lifecycle_and_reset"]["mode"], "full_order_and_reset")
+            self.assertEqual(report["order_lifecycle_and_reset"]["tap1Status"], 200)
+            self.assertEqual(report["order_lifecycle_and_reset"]["tap2Status"], 200)
+            self.assertEqual(report["order_lifecycle_and_reset"]["resetStatus"], 200)
+
 
 if __name__ == "__main__":
     unittest.main()

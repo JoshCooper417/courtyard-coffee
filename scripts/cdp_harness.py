@@ -250,7 +250,7 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
     s1 = os.path.join(SCREENSHOTS_DIR, "cuj01_initial_storefront.png")
     cdp.screenshot(s1)
 
-    # CUJ-01: Add untagged Butter Croissant (12 NIS) -> Inline Stepper -> Increment to 2 (24 NIS)
+    # CUJ-01: Add untagged Butter Croissant (12 NIS) -> Inline Stepper -> Increment to 2 -> Decrement to 0 -> Re-add 2 (24 NIS)
     cuj01_telemetry = cdp.evaluate(
         """
         (() => {
@@ -259,9 +259,23 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
           const sheetAfterFirstClick = Boolean(document.querySelector('[data-testid="tag-bottom-sheet"]'));
           const qtyAfterFirstClick = document.querySelector('[data-testid="stepper-qty-item-croissant"]')?.textContent?.trim();
 
-          const incBtn = document.querySelector('[data-testid="stepper-inc-item-croissant"]');
+          let incBtn = document.querySelector('[data-testid="stepper-inc-item-croissant"]');
           incBtn.click();
           const qtyAfterSecondClick = document.querySelector('[data-testid="stepper-qty-item-croissant"]')?.textContent?.trim();
+
+          // Edge Case: Decrement from 2 -> 1 -> 0 and verify inline stepper & StickyCartBar disappear
+          let decBtn = document.querySelector('[data-testid="stepper-dec-item-croissant"]');
+          decBtn.click();
+          const qtyAfterFirstDec = document.querySelector('[data-testid="stepper-qty-item-croissant"]')?.textContent?.trim();
+          decBtn = document.querySelector('[data-testid="stepper-dec-item-croissant"]');
+          decBtn.click();
+          const stepperRemovedAtZero = !document.querySelector('[data-testid="inline-stepper-item-croissant"]');
+          const addBtnRestoredAtZero = Boolean(document.querySelector('[data-testid="add-item-item-croissant"]'));
+          const cartBarRemovedAtZero = !document.querySelector('[data-testid="sticky-cart-bar"]');
+
+          // Restore canonical 2x Butter Croissant (24 NIS)
+          document.querySelector('[data-testid="add-item-item-croissant"]').click();
+          document.querySelector('[data-testid="stepper-inc-item-croissant"]').click();
           const cartCountText = document.querySelector('[data-testid="cart-bar-count"]')?.textContent?.trim();
           const cartTotalText = document.querySelector('[data-testid="cart-bar-total"]')?.textContent?.trim();
 
@@ -269,6 +283,12 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
             sheetAfterFirstClick,
             qtyAfterFirstClick,
             qtyAfterSecondClick,
+            decrementEdgeCase: {
+              qtyAfterFirstDec,
+              stepperRemovedAtZero,
+              addBtnRestoredAtZero,
+              cartBarRemovedAtZero
+            },
             cartCountText,
             cartTotalText
           };
@@ -278,10 +298,16 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
     s2 = os.path.join(SCREENSHOTS_DIR, "cuj01_pastry_added.png")
     cdp.screenshot(s2)
 
-    # CUJ-02 Step A: Click "+ הוסף" on tagged Cappuccino (14 NIS) -> TagBottomSheet opens
+    # CUJ-02 Step A: Verify modal close ('✕') without cart mutation, then reopen TagBottomSheet on Cappuccino (14 NIS)
     cuj02_open_telemetry = cdp.evaluate(
         """
         (() => {
+          document.querySelector('[data-testid="add-item-item-cappuccino"]').click();
+          const closeBtn = document.querySelector('[data-testid="close-tag-sheet-btn"]');
+          if (closeBtn) closeBtn.click();
+          const closedCleanly = !document.querySelector('[data-testid="tag-bottom-sheet"]');
+          const cartTotalUnchangedAfterClose = document.querySelector('[data-testid="cart-bar-total"]')?.textContent?.trim();
+
           const addCapBtn = document.querySelector('[data-testid="add-item-item-cappuccino"]');
           addCapBtn.click();
           const sheetPresent = Boolean(document.querySelector('[data-testid="tag-bottom-sheet"]'));
@@ -289,6 +315,10 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
           const decafBtn = document.querySelector('[data-testid="tag-pill-tag-decaf"]');
           const syrupBtn = document.querySelector('[data-testid="tag-pill-tag-syrup"]');
           return {
+            modalCloseEdgeCase: {
+              closedCleanly,
+              cartTotalUnchangedAfterClose
+            },
             sheetPresent,
             oatText: oatBtn?.textContent?.trim(),
             oatDisabled: Boolean(oatBtn?.disabled),
@@ -326,17 +356,35 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
     s4 = os.path.join(SCREENSHOTS_DIR, "cuj02_bottom_sheet_selected.png")
     cdp.screenshot(s4)
 
-    # CUJ-02 Step C: Confirm customization -> Cart updates to 3 items / 40 NIS
+    # CUJ-02 Step C: Confirm customization + verify multi-customization cart keying (merge identical vs separate distinct)
     cuj02_cart_telemetry = cdp.evaluate(
         """
         (async () => {
           const confirmBtn = document.querySelector('[data-testid="confirm-customization-btn"]');
           confirmBtn.click();
           const stateMod = await import('/src/state.js');
+          const capItem = stateMod.appState.store.menuItems.find(i => i.id === 'item-cappuccino');
+
+          // Edge Case: Add distinct Cappuccino customization (Decaf + "בלי קצף") -> separate cart line (length = 3)
+          const decafEntry1 = stateMod.addToCart(stateMod.appState.store, capItem, ['tag-decaf'], 'בלי קצף', 1);
+          const cartLinesWithDistinctCustomization = stateMod.appState.cart.length;
+          // Add identical Cappuccino customization again -> merges into existing line (qty = 2, length stays 3)
+          const decafEntry2 = stateMod.addToCart(stateMod.appState.store, capItem, ['tag-decaf'], 'בלי קצף', 1);
+          const mergedIdenticalQty = decafEntry2.qty;
+          const cartLinesAfterIdenticalMerge = stateMod.appState.cart.length;
+          // Remove temporary Decaf line so canonical cart (2x Croissant + 1x Oat Cappuccino = 40 NIS) is preserved
+          stateMod.updateCartItemQty(decafEntry1.key, 0);
+
           return {
             sheetClosed: !document.querySelector('[data-testid="tag-bottom-sheet"]'),
             cartCountText: document.querySelector('[data-testid="cart-bar-count"]')?.textContent?.trim(),
             cartTotalText: document.querySelector('[data-testid="cart-bar-total"]')?.textContent?.trim(),
+            multiCustomizationKeyingProof: {
+              cartLinesWithDistinctCustomization,
+              mergedIdenticalQty,
+              cartLinesAfterIdenticalMerge,
+              canonicalCartLinesRestored: stateMod.appState.cart.length
+            },
             cartItemsSnapshot: stateMod.appState.cart
           };
         })()
@@ -345,12 +393,22 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
     s5 = os.path.join(SCREENSHOTS_DIR, "cuj02_cart_updated.png")
     cdp.screenshot(s5)
 
-    # CUJ-03 Step A: Open CheckoutSheet, fill "דניאל" & "054-9876543"
+    # CUJ-03 Step A: Open CheckoutSheet, verify close button + empty form validation error, then fill "דניאל" & "054-9876543"
     cuj03_sheet_telemetry = cdp.evaluate(
         """
         (() => {
-          const cartBar = document.querySelector('[data-testid="sticky-cart-bar"]');
-          cartBar.click();
+          // Edge Case 1: Open & Close CheckoutSheet via '✕' button
+          document.querySelector('[data-testid="sticky-cart-bar"]').click();
+          document.querySelector('[data-testid="close-checkout-btn"]').click();
+          const closedCheckoutCleanly = !document.querySelector('[data-testid="checkout-sheet"]');
+
+          // Edge Case 2: Re-open CheckoutSheet & submit empty fields -> verify [data-testid="checkout-error"]
+          document.querySelector('[data-testid="sticky-cart-bar"]').click();
+          document.querySelector('#checkout-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+          const validationErrorPresent = Boolean(document.querySelector('[data-testid="checkout-error"]'));
+          const validationErrorText = document.querySelector('[data-testid="checkout-error"]')?.textContent?.trim() || null;
+
+          // Fill valid customer details
           const nameInput = document.querySelector('[data-testid="checkout-name-input"]');
           const phoneInput = document.querySelector('[data-testid="checkout-phone-input"]');
           nameInput.value = 'דניאל';
@@ -358,6 +416,11 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
           phoneInput.value = '054-9876543';
           phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
           return {
+            validationEdgeCase: {
+              closedCheckoutCleanly,
+              validationErrorPresent,
+              validationErrorText
+            },
             checkoutSheetOpen: Boolean(document.querySelector('[data-testid="checkout-sheet"]')),
             summaryTotalText: document.querySelector('[data-testid="checkout-total-price"]')?.textContent?.trim(),
             submitBtnText: document.querySelector('[data-testid="submit-order-btn"]')?.textContent?.trim()
@@ -533,6 +596,35 @@ def run_m3_cujs(cdp: CDPClient, report: dict):
     s_cuj04_2 = os.path.join(SCREENSHOTS_DIR, "cuj04_pin_modal_error.png")
     cdp.screenshot(s_cuj04_2)
 
+    # Edge Case: Trigger 4 more wrong PIN attempts (reaching 5/5 failures) -> verify lockout disables input & submit
+    cuj04_lockout_edge = cdp.evaluate(
+        """
+        (() => {
+          for (const badPin of ['0000', '1111', '2222', '3333']) {
+            const inp = document.querySelector('[data-testid="pin-input"]');
+            const frm = document.querySelector('#pin-gate-form');
+            inp.value = badPin;
+            frm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+          }
+          const errEl = document.querySelector('[data-testid="pin-error"]');
+          const inpAfter = document.querySelector('[data-testid="pin-input"]');
+          const subAfter = document.querySelector('[data-testid="pin-submit"]');
+          return {
+            failedAttemptsAttr: document.querySelector('[data-testid="pin-gate-modal"]')?.getAttribute('data-failed-attempts'),
+            lockedOutAttr: errEl?.getAttribute('data-locked-out'),
+            lockoutErrorText: errEl?.textContent?.trim() || null,
+            inputDisabled: Boolean(inpAfter?.disabled),
+            submitDisabled: Boolean(subAfter?.disabled),
+            submitBtnText: subAfter?.textContent?.trim() || null
+          };
+        })()
+        """
+    )
+    cuj04_error["fiveAttemptLockoutEdgeCase"] = cuj04_lockout_edge
+
+    # Re-navigate to /admin/kds to reset lockout modal and unlock with valid PIN 1234
+    cdp.navigate_and_wait(f"http://127.0.0.1:{SERVER_PORT}/admin/kds", '[data-testid="pin-gate-modal"]')
+
     cuj04_unlocked = cdp.evaluate(
         """
         (async () => {
@@ -588,6 +680,42 @@ def run_m3_cujs(cdp: CDPClient, report: dict):
     # CUJ-05: Barista KDS — Audio Chime & 2-Tap Ticket Lifecycle (/admin/kds)
     # -------------------------------------------------------------------------
     cdp.navigate_and_wait(f"http://127.0.0.1:{SERVER_PORT}/admin/kds", '[data-testid="kds-view"]')
+
+    # Edge Case: Submit a temporary pre-shift order, let it appear on KDS, and click [data-testid="kds-shift-reset-btn"]
+    # ("Reset Shift (101)") in the live DOM to prove the UI shift-reset button clears the queue and resets #101
+    temp_shift_req = urllib.request.Request(
+        f"http://127.0.0.1:{SERVER_PORT}/api/order",
+        data=json.dumps(
+            {
+                "customerName": "בדיקת איפוס משמרת",
+                "customerPhone": "054-1111111",
+                "items": [{"itemId": "item-croissant", "qty": 1}],
+            }
+        ).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    urllib.request.urlopen(temp_shift_req, timeout=5.0).close()
+    shift_reset_ui_proof = cdp.evaluate(
+        """
+        (async () => {
+          if (window.__triggerKdsPoll) await window.__triggerKdsPoll();
+          const ticketBeforeReset = Boolean(document.querySelector('[data-testid="kds-ticket-101"]'));
+          const resetBtn = document.querySelector('[data-testid="kds-shift-reset-btn"]');
+          resetBtn.click();
+          for (let i = 0; i < 40; i++) {
+            if (document.querySelector('[data-testid="kds-empty-state"]')) break;
+            await new Promise(r => setTimeout(r, 50));
+          }
+          return {
+            ticketBeforeReset,
+            emptyStateRestoredAfterResetClick: Boolean(document.querySelector('[data-testid="kds-empty-state"]')),
+            subtitleTextAfterReset: document.querySelector('.kds-subtitle')?.textContent?.trim() || null
+          };
+        })()
+        """
+    )
+
     cdp.evaluate(
         """
         (() => {
@@ -695,6 +823,7 @@ def run_m3_cujs(cdp: CDPClient, report: dict):
         """
     )
     cuj05_active["liveSubmittedOrderNumber"] = created_live_order.get("number")
+    cuj05_active["shiftResetUiProof"] = shift_reset_ui_proof
 
     # Tap 1: Click "Notify on WhatsApp" on Ticket #101
     cuj05_notified = cdp.evaluate(
@@ -1249,11 +1378,21 @@ def run_m4_cuj07(cdp: CDPClient, report: dict):
 
           const statusBeforeSave = document.querySelector('[data-testid="admin-save-status"]')?.textContent?.trim();
 
+          // Edge Case: Rotate Admin PIN 1234 -> 5678, Save Changes, verify localStorage sync ("5678"), then restore 1234
+          setInput(document.querySelector('[data-testid="setting-admin-pin"]'), '5678');
+          document.querySelector('[data-testid="admin-save-btn"]').click();
+          if (window.__lastAdminSavePromise) {
+            await window.__lastAdminSavePromise;
+          }
+          const storedPinAfterRotateTo5678 = localStorage.getItem('adminPin');
+          setInput(document.querySelector('[data-testid="setting-admin-pin"]'), '1234');
+
           // Click Save Changes
           document.querySelector('[data-testid="admin-save-btn"]').click();
           if (window.__lastAdminSavePromise) {
             await window.__lastAdminSavePromise;
           }
+          const storedPinRestoredTo1234 = localStorage.getItem('adminPin');
 
           const stateMod = await import('/src/state.js');
           const savedStore = stateMod.appState.store;
@@ -1268,6 +1407,10 @@ def run_m4_cuj07(cdp: CDPClient, report: dict):
             deleteProof: {
               tempTagDeletedAndUnlinked,
               tempItemDeleted
+            },
+            pinRotationProof: {
+              storedPinAfterRotateTo5678,
+              storedPinRestoredTo1234
             },
             statusBeforeSave,
             saveStatusAfter,

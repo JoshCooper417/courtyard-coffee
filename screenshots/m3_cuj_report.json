@@ -123,10 +123,20 @@
       "sheetAfterFirstClick": false,
       "qtyAfterFirstClick": "1",
       "qtyAfterSecondClick": "2",
+      "decrementEdgeCase": {
+        "qtyAfterFirstDec": "1",
+        "stepperRemovedAtZero": true,
+        "addBtnRestoredAtZero": true,
+        "cartBarRemovedAtZero": true
+      },
       "cartCountText": "2 פריטים",
       "cartTotalText": "24 ₪"
     },
     "cuj02_open": {
+      "modalCloseEdgeCase": {
+        "closedCleanly": true,
+        "cartTotalUnchangedAfterClose": "24 ₪"
+      },
       "sheetPresent": true,
       "oatText": "חלב שיבולת שועל (+2 ₪)",
       "oatDisabled": false,
@@ -145,6 +155,12 @@
       "sheetClosed": true,
       "cartCountText": "3 פריטים",
       "cartTotalText": "40 ₪",
+      "multiCustomizationKeyingProof": {
+        "cartLinesWithDistinctCustomization": 3,
+        "mergedIdenticalQty": 2,
+        "cartLinesAfterIdenticalMerge": 3,
+        "canonicalCartLinesRestored": 2
+      },
       "cartItemsSnapshot": [
         {
           "key": "item-croissant::::",
@@ -181,6 +197,11 @@
       ]
     },
     "cuj03_sheet": {
+      "validationEdgeCase": {
+        "closedCheckoutCleanly": true,
+        "validationErrorPresent": true,
+        "validationErrorText": "נא למלא שם ומספר טלפון"
+      },
       "checkoutSheetOpen": true,
       "summaryTotalText": "40 ₪",
       "submitBtnText": "שלח הזמנה • 40 ₪"
@@ -190,6 +211,7 @@
       "orderNumberText": "#101",
       "receiptTotalText": "40 ₪",
       "qrLinkHref": "https://www.bitpay.co.il/app/me/0500000000",
+      "qrPayloadAttr": "https://www.bitpay.co.il/app/me/0500000000",
       "qrSrcPrefix": "data:image/png;base64,",
       "qrNaturalWidth": 240,
       "qrNaturalHeight": 240,
@@ -205,7 +227,7 @@
       "returnedToStorefront": true
     },
     "sqliteProof": {
-      "order101Row": "ord-101-afe5c6|101|דניאל|054-9876543|40.0|[{\"itemId\": \"item-croissant\", \"nameHe\": \"קרואסון חמאה\", \"titleHe\": \"קרואסון חמאה\", \"nameEn\": \"Butter Croissant\", \"titleEn\": \"Butter Croissant\", \"qty\": 2, \"unitPrice\": 12, \"lineTotal\": 24, \"tagsHe\": [], \"tagsEn\": [], \"selectedTagIds\": [], \"selectedTags\": [], \"note\": \"\"}, {\"itemId\": \"item-cappuccino\", \"nameHe\": \"קפוצ׳ינו\", \"titleHe\": \"קפוצ׳ינו\", \"nameEn\": \"Cappuccino\", \"titleEn\": \"Cappuccino\", \"qty\": 1, \"unitPrice\": 16, \"lineTotal\": 16, \"tagsHe\": [\"חלב שיבולת שועל\"], \"tagsEn\": [\"Oat Milk\"], \"selectedTagIds\": [\"tag-oat\"], \"selectedTags\": [{\"id\": \"tag-oat\", \"nameHe\": \"חלב שיבולת שועל\", \"labelHe\": \"חלב שיבולת שועל\", \"nameEn\": \"Oat Milk\", \"labelEn\": \"Oat Milk\", \"price\": 2, \"priceDelta\": 2}], \"note\": \"חם מאוד\"}]",
+      "order101Row": "ord-101-7a34ae|101|דניאל|054-9876543|40.0|[{\"itemId\": \"item-croissant\", \"nameHe\": \"קרואסון חמאה\", \"titleHe\": \"קרואסון חמאה\", \"nameEn\": \"Butter Croissant\", \"titleEn\": \"Butter Croissant\", \"qty\": 2, \"unitPrice\": 12, \"lineTotal\": 24, \"tagsHe\": [], \"tagsEn\": [], \"selectedTagIds\": [], \"selectedTags\": [], \"note\": \"\"}, {\"itemId\": \"item-cappuccino\", \"nameHe\": \"קפוצ׳ינו\", \"titleHe\": \"קפוצ׳ינו\", \"nameEn\": \"Cappuccino\", \"titleEn\": \"Cappuccino\", \"qty\": 1, \"unitPrice\": 16, \"lineTotal\": 16, \"tagsHe\": [\"חלב שיבולת שועל\"], \"tagsEn\": [\"Oat Milk\"], \"selectedTagIds\": [\"tag-oat\"], \"selectedTags\": [{\"id\": \"tag-oat\", \"nameHe\": \"חלב שיבולת שועל\", \"labelHe\": \"חלב שיבולת שועל\", \"nameEn\": \"Oat Milk\", \"labelEn\": \"Oat Milk\", \"price\": 2, \"priceDelta\": 2}], \"note\": \"חם מאוד\"}]",
       "nextOrderNumberAfter101": 102
     },
     "screenshots": [
@@ -232,7 +254,15 @@
         "kdsViewPresent": false,
         "hasErrorClass": true,
         "errorText": "Invalid PIN code. Please try again.",
-        "storedPin": null
+        "storedPin": null,
+        "fiveAttemptLockoutEdgeCase": {
+          "failedAttemptsAttr": "5",
+          "lockedOutAttr": "true",
+          "lockoutErrorText": "Too many failed attempts (5/5). Admin access locked.",
+          "inputDisabled": true,
+          "submitDisabled": true,
+          "submitBtnText": "Locked Out"
+        }
       },
       "unlocked": {
         "htmlDir": "ltr",
@@ -281,7 +311,12 @@
         "notifyBtnBottomPx": 608,
         "drawerToggleBottomPx": 675,
         "ticketFullyVisibleIn800pxViewport": true,
-        "liveSubmittedOrderNumber": 101
+        "liveSubmittedOrderNumber": 101,
+        "shiftResetUiProof": {
+          "ticketBeforeReset": true,
+          "emptyStateRestoredAfterResetClick": true,
+          "subtitleTextAfterReset": "Live Order Queue • Next Order #101"
+        }
       },
       "notifiedTicket": {
         "ticketNotifiedClass": true,
@@ -309,9 +344,9 @@
         "closedNoteInputValue": "יצאנו להפסקת צהריים, נחזור ב-14:00",
         "closedNotePutRequestCount": 1,
         "oatOutOfStockClass": true,
-        "oatText": "Oat Milk 86'd",
+        "oatText": "Oat Milk Out of Stock",
         "croissantOutOfStockClass": true,
-        "croissantText": "Butter Croissant 86'd"
+        "croissantText": "Butter Croissant Out of Stock"
       },
       "sqliteStoreState": "0|יצאנו להפסקת צהריים, נחזור ב-14:00|102",
       "customerClosedAnd86": {
@@ -380,6 +415,10 @@
       "deleteProof": {
         "tempTagDeletedAndUnlinked": true,
         "tempItemDeleted": true
+      },
+      "pinRotationProof": {
+        "storedPinAfterRotateTo5678": "5678",
+        "storedPinRestoredTo1234": "1234"
       },
       "statusBeforeSave": "Unsaved changes",
       "saveStatusAfter": "Saved ✓",
