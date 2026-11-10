@@ -100,14 +100,66 @@ export function mountAdminMenuRoute(container, initialStore) {
         <section class="admin-panel-card" aria-label="Store Settings">
           <div class="admin-panel-header">
             <h2 class="admin-panel-title">Store Settings</h2>
-            <label class="admin-open-toggle-label">
-              <input
-                type="checkbox"
-                data-testid="setting-is-open"
-                ${store.isOpen ? "checked" : ""}
-              />
-              <span>Store Open</span>
-            </label>
+            <div class="admin-settings-header-right">
+              <details class="admin-legal-popover">
+                <summary class="admin-legal-summary" data-testid="toggle-legal-settings">
+                  Legal &amp; A11y Info
+                </summary>
+                <div class="admin-legal-popover-card">
+                  <label class="admin-field-label">
+                    <span>Contact Person / Owner (HE)</span>
+                    <input
+                      type="text"
+                      dir="rtl"
+                      class="admin-input admin-input-rtl"
+                      data-testid="setting-owner-name-he"
+                      placeholder="הנהלת קפה בחצר"
+                      value="${escapeAttr(store.ownerNameHe || "")}"
+                    />
+                  </label>
+                  <label class="admin-field-label">
+                    <span>Contact Email (Privacy &amp; A11y)</span>
+                    <input
+                      type="email"
+                      class="admin-input admin-input-mono"
+                      data-testid="setting-contact-email"
+                      placeholder="info@courtyard-coffee.co.il"
+                      value="${escapeAttr(store.contactEmail || "")}"
+                    />
+                  </label>
+                  <label class="admin-field-label">
+                    <span>Business Address (HE)</span>
+                    <input
+                      type="text"
+                      dir="rtl"
+                      class="admin-input admin-input-rtl"
+                      data-testid="setting-business-address-he"
+                      placeholder="כתובת בית הקפה"
+                      value="${escapeAttr(store.businessAddressHe || "")}"
+                    />
+                  </label>
+                  <label class="admin-field-label">
+                    <span>Physical Accessibility Note (HE)</span>
+                    <input
+                      type="text"
+                      dir="rtl"
+                      class="admin-input admin-input-rtl"
+                      data-testid="setting-a11y-physical-he"
+                      placeholder="הכניסה לחצר נגישה במפלס הרחוב..."
+                      value="${escapeAttr(store.accessibilityPhysicalHe || "")}"
+                    />
+                  </label>
+                </div>
+              </details>
+              <label class="admin-open-toggle-label">
+                <input
+                  type="checkbox"
+                  data-testid="setting-is-open"
+                  ${store.isOpen ? "checked" : ""}
+                />
+                <span>Store Open</span>
+              </label>
+            </div>
           </div>
           <div class="admin-settings-fields">
             <label class="admin-field-label">
@@ -258,6 +310,10 @@ export function mountAdminMenuRoute(container, initialStore) {
   const bitPhoneInput = container.querySelector('[data-testid="setting-bit-phone"]');
   const adminPinInput = container.querySelector('[data-testid="setting-admin-pin"]');
   const closedNoteInput = container.querySelector('[data-testid="setting-closed-note-he"]');
+  const ownerNameInput = container.querySelector('[data-testid="setting-owner-name-he"]');
+  const contactEmailInput = container.querySelector('[data-testid="setting-contact-email"]');
+  const businessAddressInput = container.querySelector('[data-testid="setting-business-address-he"]');
+  const a11yPhysicalInput = container.querySelector('[data-testid="setting-a11y-physical-he"]');
   const newPhotoLabelInput = container.querySelector('[data-testid="new-photo-label-input"]');
   const newPhotoFileInput = container.querySelector('[data-testid="new-photo-file-input"]');
   const photosRegion = container.querySelector("#admin-photos-region");
@@ -709,6 +765,30 @@ export function mountAdminMenuRoute(container, initialStore) {
     closedNoteInput.addEventListener("input", () => {
       store.closedNoteHe = closedNoteInput.value;
       store.closedMessageHe = closedNoteInput.value;
+      markDirty();
+    });
+  }
+  if (ownerNameInput) {
+    ownerNameInput.addEventListener("input", () => {
+      store.ownerNameHe = ownerNameInput.value;
+      markDirty();
+    });
+  }
+  if (contactEmailInput) {
+    contactEmailInput.addEventListener("input", () => {
+      store.contactEmail = contactEmailInput.value;
+      markDirty();
+    });
+  }
+  if (businessAddressInput) {
+    businessAddressInput.addEventListener("input", () => {
+      store.businessAddressHe = businessAddressInput.value;
+      markDirty();
+    });
+  }
+  if (a11yPhysicalInput) {
+    a11yPhysicalInput.addEventListener("input", () => {
+      store.accessibilityPhysicalHe = a11yPhysicalInput.value;
       markDirty();
     });
   }

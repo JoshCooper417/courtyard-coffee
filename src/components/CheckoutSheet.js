@@ -1,13 +1,32 @@
 /**
  * CheckoutSheet Component — Collects customer name & phone and submits order via POST /api/order.
+ * Includes Section 11 (Amendment 13 to the Israeli Privacy Protection Law) point-of-collection disclosure.
  */
 import { appState, getCartTotals } from "../state.js";
+import { mountPrivacyPolicyModal } from "./LegalModals.js";
 
 export function mountCheckoutSheet(hostEl, onSubmitOrder, onClose) {
   let customerName = "";
   let customerPhone = "";
   let errorMsg = "";
   let isSubmitting = false;
+
+  function handleKeyDown(e) {
+    if (e.key === "Escape") {
+      cleanupAndClose();
+    }
+  }
+
+  function cleanupAndClose() {
+    if (typeof window !== "undefined") {
+      window.removeEventListener("keydown", handleKeyDown);
+    }
+    onClose();
+  }
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("keydown", handleKeyDown);
+  }
 
   function render() {
     const { totalPrice } = getCartTotals();
@@ -85,6 +104,17 @@ export function mountCheckoutSheet(hostEl, onSubmitOrder, onClose) {
               />
             </div>
 
+            <div class="checkout-privacy-notice" data-testid="checkout-privacy-notice">
+              <span>
+                מסירת הפרטים אינה חובה על פי דין, אך ללא מסירתם לא נוכל להפיק את ההזמנה ולשלוח עדכון בוואטסאפ כשהיא מוכנה. הפרטים ישמשו להכנת ההזמנה בלבד (ללא דיוור שיווקי) בהתאם ל־
+              </span>
+              <button
+                type="button"
+                class="inline-legal-link-btn"
+                data-testid="checkout-open-privacy-btn"
+              >מדיניות הפרטיות (תיקון 13)</button>.
+            </div>
+
             ${
               errorMsg
                 ? `<div class="pin-error" data-testid="checkout-error" role="alert">${errorMsg}</div>`
@@ -117,9 +147,31 @@ export function mountCheckoutSheet(hostEl, onSubmitOrder, onClose) {
       });
     }
 
+    const openPrivacyBtn = hostEl.querySelector('[data-testid="checkout-open-privacy-btn"]');
+    if (openPrivacyBtn) {
+      openPrivacyBtn.addEventListener("click", () => {
+        if (typeof window !== "undefined") {
+          window.removeEventListener("keydown", handleKeyDown);
+        }
+        mountPrivacyPolicyModal(hostEl, appState.store, () => {
+          if (typeof window !== "undefined") {
+            window.addEventListener("keydown", handleKeyDown);
+          }
+          render();
+        });
+      });
+    }
+
     const closeBtn = hostEl.querySelector('[data-testid="close-checkout-btn"]');
     if (closeBtn) {
-      closeBtn.addEventListener("click", () => onClose());
+      closeBtn.addEventListener("click", () => cleanupAndClose());
+    }
+
+    const backdrop = hostEl.querySelector('[data-testid="checkout-sheet"]');
+    if (backdrop) {
+      backdrop.addEventListener("click", (e) => {
+        if (e.target === backdrop) cleanupAndClose();
+      });
     }
 
     const form = hostEl.querySelector("#checkout-form");
@@ -137,11 +189,17 @@ export function mountCheckoutSheet(hostEl, onSubmitOrder, onClose) {
         errorMsg = "";
         render();
         try {
+          if (typeof window !== "undefined") {
+            window.removeEventListener("keydown", handleKeyDown);
+          }
           await onSubmitOrder({
             customerName: trimmedName,
             customerPhone: trimmedPhone,
           });
         } catch (err) {
+          if (typeof window !== "undefined") {
+            window.addEventListener("keydown", handleKeyDown);
+          }
           isSubmitting = false;
           errorMsg = err.message || "שגיאה בשליחת ההזמנה";
           render();

@@ -790,6 +790,80 @@ class TestMilestone1And2Routes(unittest.TestCase):
             self.assertEqual(report["order_lifecycle_and_reset"]["tap2Status"], 200)
             self.assertEqual(report["order_lifecycle_and_reset"]["resetStatus"], 200)
 
+    def test_israeli_accessibility_and_privacy_amendment13_contracts(self):
+        # 1. Verify store_state persists optional legal & accessibility contact fields
+        _, store = self._request_json("GET", "/api/store")
+        store["ownerNameHe"] = "דניאל כהן — קפה בחצר"
+        store["contactPhone"] = "054-9876543"
+        store["contactEmail"] = "privacy@courtyard-coffee.co.il"
+        store["businessAddressHe"] = "רחוב החצר 12, תל אביב"
+        store["accessibilityPhysicalHe"] = "כניסה נגישה ללא מדרגות ומקומות ישיבה מותאמים בחצר."
+
+        st_put, updated = self._request_json(
+            "PUT",
+            "/api/store",
+            store,
+            extra_headers={"X-Admin-Pin": "1234"},
+        )
+        self.assertEqual(st_put, 200)
+        self.assertEqual(updated.get("ownerNameHe"), "דניאל כהן — קפה בחצר")
+        self.assertEqual(updated.get("contactPhone"), "054-9876543")
+        self.assertEqual(updated.get("contactEmail"), "privacy@courtyard-coffee.co.il")
+        self.assertEqual(updated.get("businessAddressHe"), "רחוב החצר 12, תל אביב")
+        self.assertEqual(
+            updated.get("accessibilityPhysicalHe"),
+            "כניסה נגישה ללא מדרגות ומקומות ישיבה מותאמים בחצר.",
+        )
+
+        # 2. Verify AccessibilityWidget.js contracts (IS 5568 assistive toolbar)
+        a11y_js = (ROOT_DIR / "src" / "components" / "AccessibilityWidget.js").read_text(encoding="utf-8")
+        self.assertIn("courtyard_a11y_prefs", a11y_js)
+        self.assertIn('data-testid="a11y-menu-modal"', a11y_js)
+        self.assertIn('data-testid="a11y-toggle-font"', a11y_js)
+        self.assertIn('data-testid="a11y-toggle-contrast"', a11y_js)
+        self.assertIn('data-testid="a11y-toggle-grayscale"', a11y_js)
+        self.assertIn('data-testid="a11y-toggle-links"', a11y_js)
+        self.assertIn('data-testid="a11y-toggle-readable-font"', a11y_js)
+        self.assertIn('data-testid="a11y-toggle-animations"', a11y_js)
+        self.assertIn('data-testid="a11y-reset-btn"', a11y_js)
+        self.assertIn('data-testid="a11y-open-statement-btn"', a11y_js)
+
+        # 3. Verify LegalModals.js contracts (Accessibility Statement + Amendment 13 Privacy Policy)
+        legal_js = (ROOT_DIR / "src" / "components" / "LegalModals.js").read_text(encoding="utf-8")
+        self.assertIn('data-testid="accessibility-statement-modal"', legal_js)
+        self.assertIn("ת״י 5568", legal_js)
+        self.assertIn("WCAG 2.0", legal_js)
+        self.assertIn('data-testid="privacy-policy-modal"', legal_js)
+        self.assertIn("תיקון מס׳ 13", legal_js)
+        self.assertIn("סעיף 11", legal_js)
+        self.assertIn("סעיפים 13 ו-14", legal_js)
+        self.assertIn('data-testid="store-footer"', legal_js)
+        self.assertIn('data-testid="footer-a11y-menu-btn"', legal_js)
+        self.assertIn('data-testid="footer-a11y-statement-btn"', legal_js)
+        self.assertIn('data-testid="footer-privacy-policy-btn"', legal_js)
+
+        # 4. Verify Section 11 frictionless point-of-collection notice in CheckoutSheet.js
+        checkout_js = (ROOT_DIR / "src" / "components" / "CheckoutSheet.js").read_text(encoding="utf-8")
+        self.assertIn('data-testid="checkout-privacy-notice"', checkout_js)
+        self.assertIn('data-testid="checkout-open-privacy-btn"', checkout_js)
+        self.assertIn("אינה חובה על פי דין", checkout_js)
+        self.assertIn("ללא דיוור שיווקי", checkout_js)
+
+        # 5. Verify WCAG 2.0 AA semantics in CustomerHeader.js, Customer.js, MenuItemCard.js, and index.css
+        header_js = (ROOT_DIR / "src" / "components" / "CustomerHeader.js").read_text(encoding="utf-8")
+        self.assertIn('data-testid="skip-to-content-link"', header_js)
+        self.assertIn('data-testid="a11y-widget-toggle"', header_js)
+
+        customer_js = (ROOT_DIR / "src" / "routes" / "Customer.js").read_text(encoding="utf-8")
+        self.assertIn('id="menu-main-content"', customer_js)
+        self.assertIn("aria-pressed=", customer_js)
+        self.assertIn("renderStoreFooter", customer_js)
+
+        css = (ROOT_DIR / "src" / "index.css").read_text(encoding="utf-8")
+        self.assertIn(":focus-visible", css)
+        self.assertIn("prefers-reduced-motion: reduce", css)
+        self.assertIn("html.a11y-high-contrast", css)
+
 
 if __name__ == "__main__":
     unittest.main()

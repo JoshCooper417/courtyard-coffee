@@ -36,6 +36,14 @@
           "item-cappuccino",
           "item-croissant"
         ]
+      },
+      "legalAndAccessibilityProof": {
+        "a11yMenuOpen": true,
+        "highContrastApplied": true,
+        "highContrastReset": true,
+        "a11yStatementOpen": true,
+        "privacyPolicyOpen": true,
+        "storeFooterPresent": true
       }
     },
     "screenshot": "/Users/joshuacooper/Documents/code/courtyard-coffee/screenshots/m1_smoke_customer_rtl.png"
@@ -203,6 +211,13 @@
         "validationErrorText": "נא למלא שם ומספר טלפון"
       },
       "checkoutSheetOpen": true,
+      "privacyNoticePresent": true,
+      "privacyPolicyInlineBtnPresent": true,
+      "privacyModalRoundTrip": {
+        "privacyModalOpenedFromCheckout": true,
+        "namePreservedAfterPrivacyModal": true,
+        "phonePreservedAfterPrivacyModal": true
+      },
       "summaryTotalText": "40 ₪",
       "submitBtnText": "שלח הזמנה • 40 ₪"
     },
@@ -227,7 +242,7 @@
       "returnedToStorefront": true
     },
     "sqliteProof": {
-      "order101Row": "ord-101-7d1ca3|101|דניאל|054-9876543|40.0|[{\"itemId\": \"item-croissant\", \"nameHe\": \"קרואסון חמאה\", \"titleHe\": \"קרואסון חמאה\", \"nameEn\": \"Butter Croissant\", \"titleEn\": \"Butter Croissant\", \"qty\": 2, \"unitPrice\": 12, \"lineTotal\": 24, \"tagsHe\": [], \"tagsEn\": [], \"selectedTagIds\": [], \"selectedTags\": [], \"note\": \"\"}, {\"itemId\": \"item-cappuccino\", \"nameHe\": \"קפוצ׳ינו\", \"titleHe\": \"קפוצ׳ינו\", \"nameEn\": \"Cappuccino\", \"titleEn\": \"Cappuccino\", \"qty\": 1, \"unitPrice\": 16, \"lineTotal\": 16, \"tagsHe\": [\"חלב שיבולת שועל\"], \"tagsEn\": [\"Oat Milk\"], \"selectedTagIds\": [\"tag-oat\"], \"selectedTags\": [{\"id\": \"tag-oat\", \"nameHe\": \"חלב שיבולת שועל\", \"labelHe\": \"חלב שיבולת שועל\", \"nameEn\": \"Oat Milk\", \"labelEn\": \"Oat Milk\", \"price\": 2, \"priceDelta\": 2}], \"note\": \"חם מאוד\"}]",
+      "order101Row": "ord-101-f9bcfc|101|דניאל|054-9876543|40.0|[{\"itemId\": \"item-croissant\", \"nameHe\": \"קרואסון חמאה\", \"titleHe\": \"קרואסון חמאה\", \"nameEn\": \"Butter Croissant\", \"titleEn\": \"Butter Croissant\", \"qty\": 2, \"unitPrice\": 12, \"lineTotal\": 24, \"tagsHe\": [], \"tagsEn\": [], \"selectedTagIds\": [], \"selectedTags\": [], \"note\": \"\"}, {\"itemId\": \"item-cappuccino\", \"nameHe\": \"קפוצ׳ינו\", \"titleHe\": \"קפוצ׳ינו\", \"nameEn\": \"Cappuccino\", \"titleEn\": \"Cappuccino\", \"qty\": 1, \"unitPrice\": 16, \"lineTotal\": 16, \"tagsHe\": [\"חלב שיבולת שועל\"], \"tagsEn\": [\"Oat Milk\"], \"selectedTagIds\": [\"tag-oat\"], \"selectedTags\": [{\"id\": \"tag-oat\", \"nameHe\": \"חלב שיבולת שועל\", \"labelHe\": \"חלב שיבולת שועל\", \"nameEn\": \"Oat Milk\", \"labelEn\": \"Oat Milk\", \"price\": 2, \"priceDelta\": 2}], \"note\": \"חם מאוד\"}]",
       "nextOrderNumberAfter101": 102
     },
     "screenshots": [

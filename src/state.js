@@ -9,6 +9,7 @@ export const appState = {
   activeOrder: null,
   activeTagSheetItemId: null,
   isCheckoutOpen: false,
+  activeLegalModal: null,
 };
 
 export function buildCartKey(itemId, selectedTagIds = [], note = "") {

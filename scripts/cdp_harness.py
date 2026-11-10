@@ -415,6 +415,17 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
           nameInput.dispatchEvent(new Event('input', { bubbles: true }));
           phoneInput.value = '054-9876543';
           phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+          // E2E Test: Click inline Amendment 13 Privacy Policy link inside CheckoutSheet,
+          // verify Privacy Policy modal opens, close it, and verify typed form values are preserved!
+          const openPrivacyBtn = document.querySelector('[data-testid="checkout-open-privacy-btn"]');
+          if (openPrivacyBtn) openPrivacyBtn.click();
+          const privacyModalOpenedFromCheckout = Boolean(document.querySelector('[data-testid="privacy-policy-modal"]'));
+          const donePrivacyBtn = document.querySelector('[data-testid="done-privacy-policy-btn"]');
+          if (donePrivacyBtn) donePrivacyBtn.click();
+          const namePreservedAfterPrivacyModal = document.querySelector('[data-testid="checkout-name-input"]')?.value === 'דניאל';
+          const phonePreservedAfterPrivacyModal = document.querySelector('[data-testid="checkout-phone-input"]')?.value === '054-9876543';
+
           return {
             validationEdgeCase: {
               closedCheckoutCleanly,
@@ -422,6 +433,13 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
               validationErrorText
             },
             checkoutSheetOpen: Boolean(document.querySelector('[data-testid="checkout-sheet"]')),
+            privacyNoticePresent: Boolean(document.querySelector('[data-testid="checkout-privacy-notice"]')),
+            privacyPolicyInlineBtnPresent: Boolean(document.querySelector('[data-testid="checkout-open-privacy-btn"]')),
+            privacyModalRoundTrip: {
+              privacyModalOpenedFromCheckout,
+              namePreservedAfterPrivacyModal,
+              phonePreservedAfterPrivacyModal
+            },
             summaryTotalText: document.querySelector('[data-testid="checkout-total-price"]')?.textContent?.trim(),
             submitBtnText: document.querySelector('[data-testid="submit-order-btn"]')?.textContent?.trim()
           };
@@ -430,6 +448,15 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
     )
     s6 = os.path.join(SCREENSHOTS_DIR, "cuj03_checkout_sheet_filled.png")
     cdp.screenshot(s6)
+    rt_proof = cuj03_sheet_telemetry.get("privacyModalRoundTrip", {})
+    if not (
+        cuj03_sheet_telemetry.get("privacyNoticePresent")
+        and cuj03_sheet_telemetry.get("privacyPolicyInlineBtnPresent")
+        and rt_proof.get("privacyModalOpenedFromCheckout")
+        and rt_proof.get("namePreservedAfterPrivacyModal")
+        and rt_proof.get("phonePreservedAfterPrivacyModal")
+    ):
+        raise AssertionError(f"Checkout Section 11 Privacy E2E assertions failed: {cuj03_sheet_telemetry}")
 
     # CUJ-03 Step B: Submit order -> StaticReceipt #101 with 240x240 QR & Copy Phone button
     cuj03_receipt_telemetry = cdp.evaluate(
@@ -1724,6 +1751,28 @@ def run_m1_smoke():
               const pastryIds = clickCategory('Pastry');
               const allIds = clickCategory('All');
 
+              // Verify Accessibility Widget (IS 5568) & Legal Modals (Amendment 13)
+              const a11yToggleBtn = document.querySelector('[data-testid="a11y-widget-toggle"]');
+              if (a11yToggleBtn) a11yToggleBtn.click();
+              const a11yMenuOpen = Boolean(document.querySelector('[data-testid="a11y-menu-modal"]'));
+              const contrastBtn = document.querySelector('[data-testid="a11y-toggle-contrast"]');
+              if (contrastBtn) contrastBtn.click();
+              const highContrastApplied = document.documentElement.classList.contains('a11y-high-contrast');
+              const resetA11yBtn = document.querySelector('[data-testid="a11y-reset-btn"]');
+              if (resetA11yBtn) resetA11yBtn.click();
+              const highContrastReset = !document.documentElement.classList.contains('a11y-high-contrast');
+              const openStatementBtn = document.querySelector('[data-testid="a11y-open-statement-btn"]');
+              if (openStatementBtn) openStatementBtn.click();
+              const a11yStatementOpen = Boolean(document.querySelector('[data-testid="accessibility-statement-modal"]'));
+              const closeStatementBtn = document.querySelector('[data-testid="close-a11y-statement-btn"]');
+              if (closeStatementBtn) closeStatementBtn.click();
+
+              const openPrivacyFooterBtn = document.querySelector('[data-testid="footer-privacy-policy-btn"]');
+              if (openPrivacyFooterBtn) openPrivacyFooterBtn.click();
+              const privacyPolicyOpen = Boolean(document.querySelector('[data-testid="privacy-policy-modal"]'));
+              const closePrivacyBtn = document.querySelector('[data-testid="close-privacy-policy-btn"]');
+              if (closePrivacyBtn) closePrivacyBtn.click();
+
               const htmlDir = document.documentElement.getAttribute('dir');
               const mainDir = document.querySelector('[data-testid="customer-storefront"]')?.getAttribute('dir');
               const title = document.querySelector('.store-brand-title')?.textContent?.trim();
@@ -1747,6 +1796,14 @@ def run_m1_smoke():
                   Coffee: coffeeIds,
                   Pastry: pastryIds,
                   All: allIds
+                },
+                legalAndAccessibilityProof: {
+                  a11yMenuOpen,
+                  highContrastApplied,
+                  highContrastReset,
+                  a11yStatementOpen,
+                  privacyPolicyOpen,
+                  storeFooterPresent: Boolean(document.querySelector('[data-testid="store-footer"]'))
                 }
               };
             })()
@@ -1754,6 +1811,9 @@ def run_m1_smoke():
         )
         p1 = os.path.join(SCREENSHOTS_DIR, "m1_smoke_customer_rtl.png")
         cdp.screenshot(p1)
+        a11y_proof = customer_telemetry.get("legalAndAccessibilityProof", {})
+        if not all(a11y_proof.values()):
+            raise AssertionError(f"Legal & Accessibility E2E assertions failed: {a11y_proof}")
         report["customer_rtl"] = {"telemetry": customer_telemetry, "screenshot": p1}
 
         # 2. Admin KDS ("/admin/kds") at 1280x800 — RED (Blocked) -> GREEN (Unlocked) Proof

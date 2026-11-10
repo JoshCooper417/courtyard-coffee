@@ -20,6 +20,7 @@ export function renderMenuItemCard(item, store, photosById) {
         type="button"
         class="add-btn"
         data-testid="add-item-${item.id}"
+        aria-label="${itemTitleHe} — אזל מהמלאי"
         disabled
       >
         אזל מהמלאי
@@ -27,22 +28,22 @@ export function renderMenuItemCard(item, store, photosById) {
     `;
   } else if (!hasTags && untaggedEntry && untaggedEntry.qty > 0) {
     actionHtml = `
-      <div class="inline-stepper" data-testid="inline-stepper-${item.id}">
+      <div class="inline-stepper" data-testid="inline-stepper-${item.id}" role="group" aria-label="כמות עבור ${itemTitleHe}">
         <button
           type="button"
           class="stepper-btn"
           data-testid="stepper-dec-${item.id}"
           data-stepper-dec="${item.id}"
-          aria-label="הפחת כמות"
+          aria-label="הפחת כמות של ${itemTitleHe}"
           ${!isOpen ? "disabled" : ""}
         >−</button>
-        <span class="stepper-qty" data-testid="stepper-qty-${item.id}">${untaggedEntry.qty}</span>
+        <span class="stepper-qty" data-testid="stepper-qty-${item.id}" aria-live="polite">${untaggedEntry.qty}</span>
         <button
           type="button"
           class="stepper-btn"
           data-testid="stepper-inc-${item.id}"
           data-stepper-inc="${item.id}"
-          aria-label="הוסף כמות"
+          aria-label="הוסף כמות של ${itemTitleHe}"
           ${!isOpen ? "disabled" : ""}
         >+</button>
       </div>
@@ -54,6 +55,7 @@ export function renderMenuItemCard(item, store, photosById) {
         class="add-btn"
         data-testid="add-item-${item.id}"
         data-add-item="${item.id}"
+        aria-label="הוסף ${itemTitleHe} להזמנה"
         ${!isOpen && !hasTags ? "disabled" : ""}
       >
         + הוסף

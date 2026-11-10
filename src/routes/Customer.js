@@ -18,6 +18,15 @@ import { renderStickyCartBar } from "../components/StickyCartBar.js";
 import { mountTagBottomSheet } from "../components/TagBottomSheet.js";
 import { mountCheckoutSheet } from "../components/CheckoutSheet.js";
 import { mountStaticReceipt } from "../components/StaticReceipt.js";
+import {
+  applyAccessibilityPrefsToDom,
+  mountAccessibilityMenuModal,
+} from "../components/AccessibilityWidget.js";
+import {
+  mountAccessibilityStatementModal,
+  mountPrivacyPolicyModal,
+  renderStoreFooter,
+} from "../components/LegalModals.js";
 
 const CATEGORY_LABELS_HE = {
   All: "הכל",
@@ -30,6 +39,7 @@ const CATEGORY_LABELS_HE = {
 export function mountCustomerRoute(container, initialStore) {
   document.documentElement.setAttribute("dir", "rtl");
   document.documentElement.setAttribute("lang", "he");
+  applyAccessibilityPrefsToDom();
 
   let store = initialStore;
 
@@ -78,6 +88,7 @@ export function mountCustomerRoute(container, initialStore) {
                 class="category-pill ${cat === activeCat ? "active" : ""}"
                 data-category="${cat}"
                 data-testid="category-pill-${cat}"
+                aria-pressed="${cat === activeCat ? "true" : "false"}"
               >
                 ${CATEGORY_LABELS_HE[cat] || cat}
               </button>
@@ -86,18 +97,46 @@ export function mountCustomerRoute(container, initialStore) {
             .join("")}
         </nav>
 
-        <section class="menu-list" data-testid="menu-list">
+        <section id="menu-main-content" class="menu-list" data-testid="menu-list" tabindex="-1">
           ${visibleItems
             .map((item) => renderMenuItemCard(item, store, photosById))
             .join("")}
         </section>
 
+        ${renderStoreFooter()}
         ${renderStickyCartBar()}
         <div id="customer-sheet-host"></div>
       </main>
     `;
 
     const sheetHost = container.querySelector("#customer-sheet-host");
+
+    // Accessibility & Legal buttons (header + footer)
+    const openA11yMenu = () => {
+      appState.activeLegalModal = "a11y-menu";
+      render();
+    };
+    const openA11yStatement = () => {
+      appState.activeLegalModal = "a11y-statement";
+      render();
+    };
+    const openPrivacyPolicy = () => {
+      appState.activeLegalModal = "privacy-policy";
+      render();
+    };
+
+    container
+      .querySelector('[data-testid="a11y-widget-toggle"]')
+      ?.addEventListener("click", openA11yMenu);
+    container
+      .querySelector('[data-testid="footer-a11y-menu-btn"]')
+      ?.addEventListener("click", openA11yMenu);
+    container
+      .querySelector('[data-testid="footer-a11y-statement-btn"]')
+      ?.addEventListener("click", openA11yStatement);
+    container
+      .querySelector('[data-testid="footer-privacy-policy-btn"]')
+      ?.addEventListener("click", openPrivacyPolicy);
 
     // Category filter tabs
     container.querySelectorAll(".category-pill").forEach((btn) => {
@@ -205,6 +244,30 @@ export function mountCustomerRoute(container, initialStore) {
           render();
         }
       );
+    } else if (appState.activeLegalModal && sheetHost) {
+      if (appState.activeLegalModal === "a11y-menu") {
+        mountAccessibilityMenuModal(
+          sheetHost,
+          () => {
+            appState.activeLegalModal = "a11y-statement";
+            render();
+          },
+          () => {
+            appState.activeLegalModal = null;
+            render();
+          }
+        );
+      } else if (appState.activeLegalModal === "a11y-statement") {
+        mountAccessibilityStatementModal(sheetHost, store, () => {
+          appState.activeLegalModal = null;
+          render();
+        });
+      } else if (appState.activeLegalModal === "privacy-policy") {
+        mountPrivacyPolicyModal(sheetHost, store, () => {
+          appState.activeLegalModal = null;
+          render();
+        });
+      }
     }
   }
 

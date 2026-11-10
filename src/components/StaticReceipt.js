@@ -3,6 +3,12 @@
  * 240x240 ISO/IEC 18004 Bit QR Code, and Copy Phone button.
  */
 import { buildBitPaymentUrl, generateQrDataUrl } from "../utils/qr.js";
+import { mountAccessibilityMenuModal } from "./AccessibilityWidget.js";
+import {
+  mountAccessibilityStatementModal,
+  mountPrivacyPolicyModal,
+  renderStoreFooter,
+} from "./LegalModals.js";
 
 export function mountStaticReceipt(container, order, store, onBackToMenu) {
   const bitPhone = store?.bitPhone || "050-0000000";
@@ -99,8 +105,47 @@ export function mountStaticReceipt(container, order, store, onBackToMenu) {
             חזרה לתפריט
           </button>
         </section>
+        ${renderStoreFooter()}
+        <div id="receipt-legal-host"></div>
       </main>
     `;
+
+    const legalHost = container.querySelector("#receipt-legal-host");
+
+    const openA11yMenu = () => {
+      if (!legalHost) return;
+      mountAccessibilityMenuModal(
+        legalHost,
+        () => openA11yStatement(),
+        () => {
+          legalHost.innerHTML = "";
+        }
+      );
+    };
+
+    const openA11yStatement = () => {
+      if (!legalHost) return;
+      mountAccessibilityStatementModal(legalHost, store, () => {
+        legalHost.innerHTML = "";
+      });
+    };
+
+    const openPrivacyPolicy = () => {
+      if (!legalHost) return;
+      mountPrivacyPolicyModal(legalHost, store, () => {
+        legalHost.innerHTML = "";
+      });
+    };
+
+    container
+      .querySelector('[data-testid="footer-a11y-menu-btn"]')
+      ?.addEventListener("click", openA11yMenu);
+    container
+      .querySelector('[data-testid="footer-a11y-statement-btn"]')
+      ?.addEventListener("click", openA11yStatement);
+    container
+      .querySelector('[data-testid="footer-privacy-policy-btn"]')
+      ?.addEventListener("click", openPrivacyPolicy);
 
     const copyBtn = container.querySelector('[data-testid="copy-phone-btn"]');
     if (copyBtn) {

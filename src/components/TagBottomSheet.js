@@ -15,6 +15,23 @@ export function mountTagBottomSheet(hostEl, item, store, onConfirm, onClose) {
   const selectedIds = new Set();
   let noteValue = "";
 
+  function handleKeyDown(e) {
+    if (e.key === "Escape") {
+      cleanupAndClose();
+    }
+  }
+
+  function cleanupAndClose() {
+    if (typeof window !== "undefined") {
+      window.removeEventListener("keydown", handleKeyDown);
+    }
+    onClose();
+  }
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("keydown", handleKeyDown);
+  }
+
   function computeUnitPrice() {
     let total = Number(item.price || 0);
     for (const tid of selectedIds) {
@@ -130,13 +147,13 @@ export function mountTagBottomSheet(hostEl, item, store, onConfirm, onClose) {
 
     const closeBtn = hostEl.querySelector('[data-testid="close-tag-sheet-btn"]');
     if (closeBtn) {
-      closeBtn.addEventListener("click", () => onClose());
+      closeBtn.addEventListener("click", () => cleanupAndClose());
     }
 
     const backdrop = hostEl.querySelector('[data-testid="tag-bottom-sheet"]');
     if (backdrop) {
       backdrop.addEventListener("click", (e) => {
-        if (e.target === backdrop) onClose();
+        if (e.target === backdrop) cleanupAndClose();
       });
     }
 
@@ -144,6 +161,9 @@ export function mountTagBottomSheet(hostEl, item, store, onConfirm, onClose) {
     if (confirmBtn) {
       confirmBtn.addEventListener("click", () => {
         if (!isOpen) return;
+        if (typeof window !== "undefined") {
+          window.removeEventListener("keydown", handleKeyDown);
+        }
         onConfirm(Array.from(selectedIds), noteValue);
       });
     }

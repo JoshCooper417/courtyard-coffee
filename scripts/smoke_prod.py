@@ -56,7 +56,15 @@ def run_smoke(base_url: str, admin_pin: str) -> dict:
     assert status_css == 200 and "--bg-courtyard" in body_css, "Failed to load /src/index.css"
 
     utility_statuses = {}
-    for util_path in ["/src/state.js", "/src/utils/qr.js", "/src/utils/wa.js", "/src/utils/chime.js", "/src/utils/image.js"]:
+    for util_path in [
+        "/src/state.js",
+        "/src/utils/qr.js",
+        "/src/utils/wa.js",
+        "/src/utils/chime.js",
+        "/src/utils/image.js",
+        "/src/components/AccessibilityWidget.js",
+        "/src/components/LegalModals.js",
+    ]:
         st_u, _, body_u = request(base_url, "GET", util_path)
         assert st_u == 200 and len(body_u) > 100, f"Failed to load {util_path} (status {st_u})"
         utility_statuses[util_path] = st_u
