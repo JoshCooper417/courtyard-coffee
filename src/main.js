@@ -6,6 +6,7 @@ import { mountPinGateModal } from "./components/PinGateModal.js";
 import { mountCustomerRoute } from "./routes/Customer.js";
 import { mountKdsRoute } from "./routes/KDS.js";
 import { mountAdminMenuRoute } from "./routes/AdminMenu.js";
+import { mountAdminIssuesRoute } from "./routes/AdminIssues.js";
 
 export async function renderCurrentRoute() {
   const appEl = document.getElementById("app");
@@ -24,6 +25,8 @@ export async function renderCurrentRoute() {
       }
       if (path.startsWith("/admin/menu")) {
         mountAdminMenuRoute(appEl, store);
+      } else if (path.startsWith("/admin/issues")) {
+        mountAdminIssuesRoute(appEl, store);
       } else {
         mountKdsRoute(appEl, store);
       }

@@ -5,6 +5,8 @@ import json
 import mimetypes
 import os
 import sys
+import urllib.request
+import urllib.error
 from http.server import SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -88,6 +90,69 @@ class CourtyardRequestHandler(SimpleHTTPRequestHandler):
             return False
         return True
 
+    def _create_github_issue(self, payload: dict) -> dict:
+        """Create a GitHub issue from a WhatsApp message via the GitHub API."""
+        token = os.environ.get("GITHUB_TOKEN", "").strip()
+        if not token:
+            raise ValueError(
+                "GITHUB_TOKEN environment variable is not set. "
+                "Add it to .env.local (local) or Vercel Environment Variables (production)."
+            )
+
+        message = str(payload.get("message", "")).strip()
+        if not message:
+            raise ValueError("Message is required")
+
+        label = str(payload.get("label", "bug")).strip()
+        if label not in ("bug", "enhancement", "documentation", "refactor"):
+            label = "bug"
+
+        # Build title from first line
+        first_line = message.split("\n")[0].strip()[:80]
+        prefix = "🐛" if label == "bug" else "✨"
+        title = f"{prefix} {first_line}"
+
+        # Build body
+        body = (
+            f"## Original WhatsApp Message\n\n"
+            f"> {message.replace(chr(10), chr(10) + '> ')}\n\n"
+            f"---\n"
+            f"*Created from the admin issue reporter*"
+        )
+
+        repo = os.environ.get("GITHUB_REPO", "JoshCooper417/courtyard-coffee")
+        api_url = f"https://api.github.com/repos/{repo}/issues"
+
+        req_body = json.dumps({
+            "title": title,
+            "body": body,
+            "labels": [label],
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            api_url,
+            data=req_body,
+            headers={
+                "Authorization": f"token {token}",
+                "Accept": "application/vnd.github.v3+json",
+                "Content-Type": "application/json",
+                "User-Agent": "courtyard-coffee-issue-reporter",
+            },
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+                return {
+                    "number": result.get("number"),
+                    "html_url": result.get("html_url"),
+                    "title": result.get("title"),
+                }
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8") if e.fp else ""
+            raise RuntimeError(f"GitHub API error {e.code}: {error_body}")
+
     def do_OPTIONS(self) -> None:
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -169,6 +234,19 @@ class CourtyardRequestHandler(SimpleHTTPRequestHandler):
             try:
                 res = reset_orders(db_path=self.db_path)
                 self._send_json(200, res)
+            except Exception as exc:
+                self._send_json(500, {"error": str(exc)})
+            return
+
+        if parsed.path == "/api/issues":
+            if not self._verify_admin_pin():
+                return
+            try:
+                payload = self._read_json_body()
+                result = self._create_github_issue(payload)
+                self._send_json(201, result)
+            except ValueError as exc:
+                self._send_json(400, {"error": str(exc)})
             except Exception as exc:
                 self._send_json(500, {"error": str(exc)})
             return
