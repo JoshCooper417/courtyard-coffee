@@ -170,7 +170,7 @@ Every feature change must preserve 100% compliance across all 7 CUJs (formalized
 
 ## 5. Verification & Deployment Playbook
 
-1. **Fast Unit, Route & Contract Suite (19 Tests — Run Before Every Commit)**:
+1. **Fast Unit, Route & Contract Suite (24 Tests — Run Before Every Commit)**:
    ```bash
    /usr/bin/python3 -m unittest discover -s /Users/joshuacooper/Documents/code/courtyard-coffee/tests -t /Users/joshuacooper/Documents/code/courtyard-coffee -v
    ```
@@ -188,3 +188,19 @@ Every feature change must preserve 100% compliance across all 7 CUJs (formalized
    ```bash
    /usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/smoke_prod.py
    ```
+
+---
+
+## 6. Agent Operations Notes
+
+### 6.1 Local Server & CDP Harness Require Network Access
+The local Python server (`server.py` on `:3000`) and the CDP E2E harness (`scripts/cdp_harness.py`) both require localhost networking. When running from an agent sandbox, these commands need network access (e.g., `BypassSandbox: true`). The CDP harness launches headless Chrome which may expose multiple targets (extensions, background pages). Always filter for `type === "page"` with the `127.0.0.1:3000` URL when connecting via Chrome's `/json` endpoint.
+
+### 6.2 Checking GitHub Issues
+The `gh` CLI is unavailable (blocked by macOS Santa). To fetch open issues, use `/usr/bin/python3` with `urllib.request` against `https://api.github.com/repos/JoshCooper417/courtyard-coffee/issues`. This requires network access and a `User-Agent` header.
+
+### 6.3 Artifact & Screenshot Quality
+Before presenting a review artifact with screenshots to the user:
+- Verify screenshot file size is > 50KB (a blank page is ~2–3KB).
+- Have a subagent review the artifact for accuracy and completeness before showing it.
+- For before/after comparisons, capture the "before" from `main` before switching to the fix branch.
