@@ -103,6 +103,16 @@ Compares current CDP screenshots (`screenshots/*.png`) pixel-by-pixel against sa
 /usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/visual_diff.py --threshold 1.0
 ```
 
+### 4.6 Run the Accessibility (a11y) Audit (IS 5568 / WCAG 2.0 AA)
+Starts `server.py` on port 3001, launches headless Chrome, and audits all 3 routes for Israeli IS 5568 / WCAG 2.0 AA compliance (document attributes, heading hierarchy, ARIA labels, tap targets, form labels, image alt text, color contrast):
+```bash
+# Audit all routes (/, /admin/kds, /admin/menu):
+/usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/a11y_audit.py
+
+# Audit a single route:
+/usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/a11y_audit.py --route /
+```
+
 ---
 
 ## 5. Production Deployment (Vercel + Turso Serverless SQLite)
@@ -139,6 +149,9 @@ Because `JoshCooper417/courtyard-coffee` is connected to Vercel (`https://courty
 
 # 1c. (Optional) Run visual regression diff against saved baselines (after 1b)
 /usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/visual_diff.py
+
+# 1d. Run the accessibility audit (IS 5568 / WCAG 2.0 AA) — exits 1 on failure
+/usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/a11y_audit.py
 
 # 2. Check status (note: .env.local and db/*.db* are gitignored so secrets/local DB are never committed)
 /usr/local/git/current/bin/git -C /Users/joshuacooper/Documents/code/courtyard-coffee status -s

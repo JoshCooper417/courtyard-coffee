@@ -5,3 +5,4 @@ db/*.db*
 screenshots/baselines/
 screenshots/diffs/
 screenshots/visual_diff_report.json
+screenshots/a11y_audit_report.json
