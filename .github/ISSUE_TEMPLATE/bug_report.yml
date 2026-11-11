@@ -1,0 +1,78 @@
+name: 🐛 Bug Report
+description: Report a bug in Courtyard Coffee
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please fill in as much as you can.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      description: Which part of the app is affected?
+      options:
+        - "Customer Storefront (/)"
+        - "Barista KDS (/admin/kds)"
+        - "Admin Menu (/admin/menu)"
+        - "API / Backend"
+        - "Other"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: "When I tap '+ הוסף' on a tagged item, the bottom sheet doesn't open..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened?
+      placeholder: "The TagBottomSheet should open with modifier tag pills..."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      options:
+        - "Mobile (iPhone / Android)"
+        - "Tablet"
+        - "Desktop"
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser & version
+      placeholder: "Chrome 130 / Safari 18 / etc."
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or console errors
+      description: Paste screenshots or any error messages from the browser console.
+  - type: dropdown
+    id: cuj
+    attributes:
+      label: Related CUJ (if known)
+      description: Which Critical User Journey does this affect?
+      options:
+        - "Not sure"
+        - "CUJ-01: Pastry instant-add & stepper"
+        - "CUJ-02: Tagged item customization (TagBottomSheet)"
+        - "CUJ-03: Checkout & receipt with QR"
+        - "CUJ-04: Admin PIN gate"
+        - "CUJ-05: KDS polling & 2-tap ticket lifecycle"
+        - "CUJ-06: Quick-86 & store close"
+        - "CUJ-07: Admin menu spreadsheet & photo album"

@@ -1,0 +1,58 @@
+name: ✨ Feature Request
+description: Suggest a new feature or improvement for Courtyard Coffee
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea? We'd love to hear it!
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      description: Which part of the app would this affect?
+      options:
+        - "Customer Storefront (/)"
+        - "Barista KDS (/admin/kds)"
+        - "Admin Menu (/admin/menu)"
+        - "API / Backend"
+        - "New surface / page"
+        - "DevOps / Testing / CI"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the pain point or opportunity.
+      placeholder: "Customers often ask if we have a specific item in stock before coming to the cafe..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How do you envision this working?
+      placeholder: "Add a 'Currently Available' filter or badge on the storefront..."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches you've thought about?
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How important is this?
+      options:
+        - "Nice to have"
+        - "Would significantly improve the experience"
+        - "Blocking / critical for operations"
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, mockups, links to similar features in other apps, etc.

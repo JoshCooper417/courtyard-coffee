@@ -82,9 +82,25 @@ CREATE TABLE IF NOT EXISTS orders (
 ```
 
 ### 4.4 Run the End-to-End Headless Chrome CDP Verification Suite (`M1` + `CUJ-01..07`)
-Starts `server.py`, launches headless Google Chrome, executes M1 smoke tests and all 7 Critical User Journeys (`CUJ-01` through `CUJ-07`), captures 22 PNG screenshots in `screenshots/`, and writes full telemetry to `screenshots/m4_cuj_report.json`:
+Starts `server.py`, launches headless Google Chrome, executes M1 smoke tests and all 7 Critical User Journeys (`CUJ-01` through `CUJ-07`), captures 23 PNG screenshots in `screenshots/`, and writes full telemetry to `screenshots/m4_cuj_report.json`:
 ```bash
 /usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/cdp_harness.py
+```
+
+### 4.5 Run the Visual Regression Diff Suite
+Compares current CDP screenshots (`screenshots/*.png`) pixel-by-pixel against saved baselines (`screenshots/baselines/`). Uses pure Python stdlib (zero dependencies). Fails if any screenshot differs by more than the threshold (default 0.5%):
+```bash
+# Save current screenshots as known-good baselines (run once after a verified CDP harness run):
+/usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/visual_diff.py --save-baselines
+
+# Compare current screenshots against baselines:
+/usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/visual_diff.py
+
+# Generate red-highlighted diff images for any failures:
+/usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/visual_diff.py --diff-images
+
+# Custom threshold (e.g., 1.0%):
+/usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/visual_diff.py --threshold 1.0
 ```
 
 ---
@@ -120,6 +136,9 @@ Because `JoshCooper417/courtyard-coffee` is connected to Vercel (`https://courty
 
 # 1b. (Optional) Run the full local Headless Chrome CDP smoke & 7-CUJ browser suite
 /usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/cdp_harness.py
+
+# 1c. (Optional) Run visual regression diff against saved baselines (after 1b)
+/usr/bin/python3 /Users/joshuacooper/Documents/code/courtyard-coffee/scripts/visual_diff.py
 
 # 2. Check status (note: .env.local and db/*.db* are gitignored so secrets/local DB are never committed)
 /usr/local/git/current/bin/git -C /Users/joshuacooper/Documents/code/courtyard-coffee status -s
