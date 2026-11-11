@@ -1752,7 +1752,7 @@ def run_m1_smoke():
               const allIds = clickCategory('All');
 
               // Verify Accessibility Widget (IS 5568) & Legal Modals (Amendment 13)
-              const a11yToggleBtn = document.querySelector('[data-testid="a11y-widget-toggle"]');
+              const a11yToggleBtn = document.querySelector('[data-testid="footer-a11y-menu-btn"]');
               if (a11yToggleBtn) a11yToggleBtn.click();
               const a11yMenuOpen = Boolean(document.querySelector('[data-testid="a11y-menu-modal"]'));
               const contrastBtn = document.querySelector('[data-testid="a11y-toggle-contrast"]');

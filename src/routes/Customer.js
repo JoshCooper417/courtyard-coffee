@@ -126,9 +126,6 @@ export function mountCustomerRoute(container, initialStore) {
     };
 
     container
-      .querySelector('[data-testid="a11y-widget-toggle"]')
-      ?.addEventListener("click", openA11yMenu);
-    container
       .querySelector('[data-testid="footer-a11y-menu-btn"]')
       ?.addEventListener("click", openA11yMenu);
     container

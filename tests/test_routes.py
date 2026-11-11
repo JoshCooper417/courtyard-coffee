@@ -852,7 +852,7 @@ class TestMilestone1And2Routes(unittest.TestCase):
         # 5. Verify WCAG 2.0 AA semantics in CustomerHeader.js, Customer.js, MenuItemCard.js, and index.css
         header_js = (ROOT_DIR / "src" / "components" / "CustomerHeader.js").read_text(encoding="utf-8")
         self.assertIn('data-testid="skip-to-content-link"', header_js)
-        self.assertIn('data-testid="a11y-widget-toggle"', header_js)
+        self.assertNotIn('data-testid="a11y-widget-toggle"', header_js)
 
         customer_js = (ROOT_DIR / "src" / "routes" / "Customer.js").read_text(encoding="utf-8")
         self.assertIn('id="menu-main-content"', customer_js)

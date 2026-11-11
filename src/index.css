@@ -1694,33 +1694,6 @@ summary:focus-visible {
   outline-offset: 2px;
 }
 
-/* Header Accessibility Trigger */
-.store-brand-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.a11y-header-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border-warm);
-  background: var(--bg-subtle);
-  color: var(--text-espresso);
-  font-size: 0.74rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.a11y-header-btn.active {
-  background: var(--color-sage);
-  color: #FFFFFF;
-  border-color: var(--color-sage);
-}
-
 /* Storefront Legal & Accessibility Footer */
 .store-footer {
   margin-top: 22px;
@@ -1915,8 +1888,7 @@ html.a11y-high-contrast .stepper-btn:not(:disabled),
 html.a11y-high-contrast .category-pill.active,
 html.a11y-high-contrast .tag-option-pill.selected,
 html.a11y-high-contrast .sticky-cart-bar,
-html.a11y-high-contrast .a11y-Option-btn.active,
-html.a11y-high-contrast .a11y-header-btn.active {
+html.a11y-high-contrast .a11y-Option-btn.active {
   color: #000000 !important;
 }
 
