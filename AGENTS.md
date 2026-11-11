@@ -204,3 +204,6 @@ Before presenting a review artifact with screenshots to the user:
 - Verify screenshot file size is > 50KB (a blank page is ~2–3KB).
 - Have a subagent review the artifact for accuracy and completeness before showing it.
 - For before/after comparisons, capture the "before" from `main` before switching to the fix branch.
+
+### 6.4 Full Deployment Checklist
+Always follow all 4 steps in Section 5 in order — do not skip the post-deploy smoke check (`scripts/smoke_prod.py`) after pushing to `main`.
