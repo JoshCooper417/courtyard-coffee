@@ -11,7 +11,12 @@ import {
   resetAllOrders,
   saveStoreState,
 } from "../state.js";
-import { playGentleChime } from "../utils/chime.js";
+import {
+  bindChimeAutoUnlock,
+  getChimeAudioState,
+  playGentleChime,
+  unlockChimeAudio,
+} from "../utils/chime.js";
 import { buildHebrewWhatsAppUrl } from "../utils/wa.js";
 
 function escapeHtml(str) {
@@ -35,6 +40,7 @@ function decodeWaPreviewText(waUrl) {
 export function mountKdsRoute(container, initialStore) {
   document.documentElement.setAttribute("dir", "ltr");
   document.documentElement.setAttribute("lang", "en");
+  bindChimeAutoUnlock();
 
   if (typeof window !== "undefined" && window.__kdsPollInterval) {
     clearInterval(window.__kdsPollInterval);
@@ -119,6 +125,15 @@ export function mountKdsRoute(container, initialStore) {
             Reset Shift (101)
           </button>
 
+          <button
+            type="button"
+            class="btn-secondary kds-test-chime-btn"
+            data-testid="kds-test-chime-btn"
+            title="Test new-order chime &amp; unlock browser audio"
+          >
+            ${getChimeAudioState() === "suspended" ? "Enable Sound" : "Test Chime"}
+          </button>
+
           <nav class="admin-nav-links" aria-label="Admin Navigation">
             <a href="/admin/kds" class="admin-nav-link active" data-nav="/admin/kds">KDS Queue</a>
             <a href="/admin/menu" class="admin-nav-link" data-nav="/admin/menu">Menu &amp; Settings</a>
@@ -150,6 +165,15 @@ export function mountKdsRoute(container, initialStore) {
         renderQuick86Host();
         renderOrders();
         renderDrawer();
+      });
+    }
+
+    const testChimeBtn = headerRegion.querySelector('[data-testid="kds-test-chime-btn"]');
+    if (testChimeBtn) {
+      testChimeBtn.addEventListener("click", async () => {
+        await unlockChimeAudio();
+        playGentleChime();
+        renderHeader();
       });
     }
   }
