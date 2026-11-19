@@ -302,8 +302,10 @@ class TestMilestone1And2Utils(unittest.TestCase):
             },
         )
         self.assertTrue(url.startswith("https://wa.me/972549876543?text="))
+        self.assertIn("%E2%98%95", url)
         parsed = urlparse(url)
         text = parse_qs(parsed.query).get("text", [""])[0]
+        self.assertIn("☕", text)
         self.assertIn("101", text)
         self.assertIn("נועה", text)
         self.assertIn("קפוצ׳ינו", text)
@@ -352,6 +354,17 @@ class TestMilestone1And2Utils(unittest.TestCase):
         self.assertIn("rsEncode10", qr_js)
         self.assertIn("buildBitPaymentUrl", qr_js)
         self.assertIn("https://www.bitpay.co.il/app/me/", qr_js)
+
+        chime_js = (ROOT_DIR / "src" / "utils" / "chime.js").read_text(encoding="utf-8")
+        self.assertIn("playGentleChime", chime_js)
+        self.assertIn("unlockChimeAudio", chime_js)
+        self.assertIn("bindChimeAutoUnlock", chime_js)
+        self.assertIn("523.25", chime_js)
+        self.assertIn("659.25", chime_js)
+
+        kds_js = (ROOT_DIR / "src" / "routes" / "KDS.js").read_text(encoding="utf-8")
+        self.assertIn("bindChimeAutoUnlock", kds_js)
+        self.assertIn('data-testid="kds-test-chime-btn"', kds_js)
 
     def test_cuj01_cart_keying_and_inline_stepper_contract(self):
         state_js = (ROOT_DIR / "src" / "state.js").read_text(encoding="utf-8")
