@@ -27,7 +27,7 @@ def build_hebrew_whatsapp_url(raw_phone: str, order: dict) -> str:
     items = order.get("items", [])
 
     lines = [
-        f"שלום {customer_name}! ההזמנה שלך (#{order_number}) מ-קפה בחצר מוכנה ☕",
+        f"שלום {customer_name}! ההזמנה שלך (#{order_number}) מ-קפה עדן מוכנה",
         "פירוט הזמנה:",
     ]
     for item in items:

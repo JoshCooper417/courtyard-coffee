@@ -217,8 +217,8 @@ def build_initial_seed_state() -> dict:
     cro_url = generate_art_png_data_url("croissant", 400, 400)
     return {
         "isOpen": True,
-        "closedNoteHe": "סגור כעת, נשוב בקרוב",
-        "closedMessageHe": "סגור כעת, נשוב בקרוב",
+        "closedNoteHe": "קפה עדן סגור כעת, נשוב בקרוב",
+        "closedMessageHe": "קפה עדן סגור כעת, נשוב בקרוב",
         "bitPhone": env_defaults.get("DEFAULT_BIT_PHONE", "050-0000000"),
         "adminPin": env_defaults.get("DEFAULT_ADMIN_PIN", "1234"),
         "nextOrderNumber": 101,
@@ -446,7 +446,7 @@ def save_store_state(
                 merged[key] = payload[key]
 
         # Keep closedNoteHe and closedMessageHe synchronized
-        old_note = current.get("closedNoteHe") or current.get("closedMessageHe") or "סגור כעת, נשוב בקרוב"
+        old_note = current.get("closedNoteHe") or current.get("closedMessageHe") or "קפה עדן סגור כעת, נשוב בקרוב"
         if "closedNoteHe" in payload and "closedMessageHe" in payload:
             if payload["closedNoteHe"] != old_note:
                 resolved_note = payload["closedNoteHe"]

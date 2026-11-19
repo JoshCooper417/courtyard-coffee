@@ -17,7 +17,7 @@ export function mountPinGateModal(container, store, onUnlocked) {
         <div class="modal-backdrop" data-testid="pin-gate-modal" data-failed-attempts="${failedAttempts}">
           <div class="modal-card ${errClass}">
             <h1 class="pin-modal-title">Staff Access Required</h1>
-            <p class="pin-modal-desc">Enter the 4-digit staff PIN to access Courtyard Coffee Admin &amp; KDS.</p>
+            <p class="pin-modal-desc">Enter the 4-digit staff PIN to access Café Eden Admin &amp; KDS.</p>
             <form id="pin-gate-form">
               <input
                 id="pin-gate-input"

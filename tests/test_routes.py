@@ -151,10 +151,13 @@ class TestMilestone1And2Routes(unittest.TestCase):
             self.assertIn('<script type="module" src="/src/main.js"></script>', html)
 
         css = (ROOT_DIR / "src" / "index.css").read_text(encoding="utf-8")
-        self.assertIn("--bg-courtyard: #FAF6F0", css)
-        self.assertIn("--color-sage: #3F624D", css)
+        self.assertIn("--bg-courtyard: #F6F0E4", css)
+        self.assertIn("--color-sage: #345934", css)
+        self.assertIn("--color-soft-green: #587A54", css)
         self.assertIn("--color-terracotta: #C86D51", css)
-        self.assertIn("--text-espresso: #261C18", css)
+        self.assertIn("--text-espresso: #4A3426", css)
+        self.assertIn("--text-stone: #6E5B4A", css)
+        self.assertIn("Noto Serif Hebrew", css)
 
         customer_js = (ROOT_DIR / "src" / "routes" / "Customer.js").read_text(encoding="utf-8")
         self.assertIn('dir="rtl"', customer_js)
@@ -896,6 +899,63 @@ class TestMilestone1And2Routes(unittest.TestCase):
         self.assertIn("updateCartItem", customer_js)
         self.assertIn("data-edit-cart-key", customer_js)
         self.assertIn("data-remove-cart-key", customer_js)
+
+    def test_cafe_eden_rebrand_assets_and_surfaces(self):
+        # Verify square logo asset is served via HTTP 200 with image/jpeg
+        sock = _InMemorySocket(
+            b"GET /src/assets/cafe-eden-logo.jpg HTTP/1.1\r\nHost: 127.0.0.1:3000\r\nConnection: close\r\n\r\n"
+        )
+
+        class BoundHandler(CourtyardRequestHandler):
+            pass
+
+        BoundHandler.db_path = self.db_path
+        BoundHandler(sock, ("127.0.0.1", 55555), _DummyServer())
+        raw_response = sock._wfile.getvalue()
+        head_bytes, _, logo_bytes = raw_response.partition(b"\r\n\r\n")
+        head_text = head_bytes.decode("iso-8859-1")
+        self.assertTrue(head_text.startswith("HTTP/1.0 200") or head_text.startswith("HTTP/1.1 200"))
+        self.assertIn("Content-Type: image/jpeg", head_text)
+        self.assertTrue(logo_bytes.startswith(b"\xff\xd8\xff"))
+        self.assertGreater(len(logo_bytes), 10_000)
+
+        index_html = (ROOT_DIR / "index.html").read_text(encoding="utf-8")
+        self.assertIn("קפה עדן", index_html)
+        self.assertIn("Café Eden", index_html)
+        self.assertIn("Noto+Serif+Hebrew", index_html)
+
+        header_js = (ROOT_DIR / "src" / "components" / "CustomerHeader.js").read_text(encoding="utf-8")
+        self.assertIn("קפה עדן", header_js)
+        self.assertIn("קפה בטבע", header_js)
+        self.assertIn("/src/assets/cafe-eden-logo.jpg", header_js)
+        self.assertNotIn("קפה בחצר", header_js)
+
+        receipt_js = (ROOT_DIR / "src" / "components" / "StaticReceipt.js").read_text(encoding="utf-8")
+        self.assertIn("קפה עדן", receipt_js)
+        self.assertIn("קפה בטבע", receipt_js)
+        self.assertIn("/src/assets/cafe-eden-logo.jpg", receipt_js)
+
+        legal_js = (ROOT_DIR / "src" / "components" / "LegalModals.js").read_text(encoding="utf-8")
+        self.assertIn("קפה עדן", legal_js)
+        self.assertNotIn("קפה בחצר", legal_js)
+
+        kds_js = (ROOT_DIR / "src" / "routes" / "KDS.js").read_text(encoding="utf-8")
+        self.assertIn("Café Eden — Barista KDS", kds_js)
+        self.assertNotIn("Courtyard Coffee", kds_js)
+
+        admin_js = (ROOT_DIR / "src" / "routes" / "AdminMenu.js").read_text(encoding="utf-8")
+        self.assertIn("Café Eden — Admin Menu &amp; Settings", admin_js)
+        self.assertNotIn("Courtyard Coffee", admin_js)
+        self.assertNotIn("קפה בחצר", admin_js)
+
+        pin_js = (ROOT_DIR / "src" / "components" / "PinGateModal.js").read_text(encoding="utf-8")
+        self.assertIn("Café Eden", pin_js)
+        self.assertNotIn("Courtyard Coffee", pin_js)
+
+        wa_js = (ROOT_DIR / "src" / "utils" / "wa.js").read_text(encoding="utf-8")
+        self.assertIn("קפה עדן", wa_js)
+        self.assertNotIn("קפה בחצר", wa_js)
+        self.assertNotIn("☕", wa_js)
 
 
 if __name__ == "__main__":

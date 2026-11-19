@@ -66,7 +66,7 @@ export function mountAdminMenuRoute(container, initialStore) {
       <header class="admin-topbar admin-menu-topbar">
         <div class="admin-menu-title-col">
           <div class="admin-menu-title-row">
-            <h1 class="admin-menu-main-title">Courtyard Coffee — Admin Menu &amp; Settings</h1>
+            <h1 class="admin-menu-main-title">Café Eden — Admin Menu &amp; Settings</h1>
             <span class="admin-overview-counts" data-testid="admin-overview-counts"></span>
           </div>
           <p class="admin-menu-subtitle">
@@ -113,7 +113,7 @@ export function mountAdminMenuRoute(container, initialStore) {
                       dir="rtl"
                       class="admin-input admin-input-rtl"
                       data-testid="setting-owner-name-he"
-                      placeholder="הנהלת קפה בחצר"
+                      placeholder="הנהלת קפה עדן"
                       value="${escapeAttr(store.ownerNameHe || "")}"
                     />
                   </label>
@@ -123,7 +123,7 @@ export function mountAdminMenuRoute(container, initialStore) {
                       type="email"
                       class="admin-input admin-input-mono"
                       data-testid="setting-contact-email"
-                      placeholder="info@courtyard-coffee.co.il"
+                      placeholder="info@cafe-eden.co.il"
                       value="${escapeAttr(store.contactEmail || "")}"
                     />
                   </label>

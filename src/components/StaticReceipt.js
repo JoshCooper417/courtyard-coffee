@@ -22,6 +22,21 @@ export function mountStaticReceipt(container, order, store, onBackToMenu) {
     container.innerHTML = `
       <main class="customer-shell" dir="rtl" data-testid="static-receipt">
         <section class="receipt-card">
+          <div class="receipt-brand-header" data-testid="receipt-brand-header">
+            <div class="receipt-logo-frame">
+              <img
+                src="/src/assets/cafe-eden-logo.jpg"
+                alt="לוגו קפה עדן"
+                width="52"
+                height="52"
+                class="receipt-logo-img"
+              />
+            </div>
+            <div class="receipt-brand-text">
+              <div class="receipt-brand-name">קפה עדן</div>
+              <div class="receipt-brand-tagline">קפה בטבע</div>
+            </div>
+          </div>
           <div class="receipt-badge-wrap">
             <span class="receipt-status-pill">ההזמנה התקבלה בהצלחה ✓</span>
             <h1 class="receipt-order-num" data-testid="receipt-order-number">#${orderNumber}</h1>

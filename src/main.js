@@ -18,6 +18,9 @@ export async function renderCurrentRoute() {
     if (path === "/admin" || path.startsWith("/admin/")) {
       document.documentElement.setAttribute("dir", "ltr");
       document.documentElement.setAttribute("lang", "en");
+      document.title = path.startsWith("/admin/menu")
+        ? "Café Eden — Admin Menu & Settings"
+        : "Café Eden — Barista KDS";
       if (!isPinUnlocked(store)) {
         mountPinGateModal(appEl, store, () => renderCurrentRoute());
         return;
@@ -30,6 +33,7 @@ export async function renderCurrentRoute() {
       return;
     }
 
+    document.title = "קפה עדן — קפה בטבע | Café Eden";
     mountCustomerRoute(appEl, store);
   } catch (err) {
     appEl.innerHTML = `<div style="padding: 24px; color: var(--color-danger);">Error loading store: ${err.message}</div>`;
