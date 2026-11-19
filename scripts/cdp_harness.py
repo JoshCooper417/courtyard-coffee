@@ -390,6 +390,111 @@ def run_m2_cujs(cdp: CDPClient, report: dict):
         })()
         """
     )
+
+    # CUJ-02 Step D (Issue #2): Edit & Remove customized coffee from MenuItemCard AND CheckoutSheet
+    cuj02_edit_remove_telemetry = cdp.evaluate(
+        """
+        (async () => {
+          const stateMod = await import('/src/state.js');
+
+          // 1. Edit customized Cappuccino directly on MenuItemCard -> change Oat Milk ("חם מאוד") to Decaf ("בלי קצף")
+          const cardEntriesPresent = Boolean(document.querySelector('[data-testid="card-cart-entries-item-cappuccino"]'));
+          document.querySelector('[data-testid="edit-card-entry-item-cappuccino-0"]').click();
+          const editSheetPrefilledOat = Boolean(document.querySelector('[data-testid="tag-pill-tag-oat"]')?.classList.contains('selected'));
+          const editSheetPrefilledNote = document.querySelector('[data-testid="item-note-input"]')?.value;
+          const editSheetBtnText = document.querySelector('[data-testid="confirm-customization-btn"]')?.textContent?.trim();
+
+          document.querySelector('[data-testid="tag-pill-tag-oat"]').click();
+          document.querySelector('[data-testid="tag-pill-tag-decaf"]').click();
+          const noteEl = document.querySelector('[data-testid="item-note-input"]');
+          noteEl.value = 'בלי קצף';
+          noteEl.dispatchEvent(new Event('input', { bubbles: true }));
+          document.querySelector('[data-testid="confirm-customization-btn"]').click();
+
+          const totalAfterCardEdit = document.querySelector('[data-testid="cart-bar-total"]')?.textContent?.trim();
+          const cardMetaAfterEdit = document.querySelector('[data-testid="card-cart-entry-item-cappuccino-0"] .card-cart-entry-meta')?.textContent?.trim();
+
+          // 2. Add a temporary 2nd customized Cappuccino (Oat Milk), then remove it via CheckoutSheet [data-testid="checkout-remove-..."]
+          document.querySelector('[data-testid="add-item-item-cappuccino"]').click();
+          document.querySelector('[data-testid="tag-pill-tag-oat"]').click();
+          document.querySelector('[data-testid="confirm-customization-btn"]').click();
+          const linesBeforeCheckoutRemove = stateMod.appState.cart.length;
+
+          // Open CheckoutSheet, fill draft name/phone, remove temporary line, then edit remaining line back to canonical Oat Milk + "חם מאוד"
+          document.querySelector('[data-testid="sticky-cart-bar"]').click();
+          const nameIn = document.querySelector('[data-testid="checkout-name-input"]');
+          const phoneIn = document.querySelector('[data-testid="checkout-phone-input"]');
+          nameIn.value = 'דניאל';
+          nameIn.dispatchEvent(new Event('input', { bubbles: true }));
+          phoneIn.value = '054-9876543';
+          phoneIn.dispatchEvent(new Event('input', { bubbles: true }));
+
+          document.querySelector('[data-testid="checkout-remove-2"]').click();
+          const linesAfterCheckoutRemove = stateMod.appState.cart.length;
+
+          // Test CheckoutSheet qty stepper (+ then -) on customized Cappuccino
+          document.querySelector('[data-testid="checkout-inc-1"]').click();
+          const totalAfterCheckoutInc = document.querySelector('[data-testid="checkout-total-price"]')?.textContent?.trim();
+          document.querySelector('[data-testid="checkout-dec-1"]').click();
+          const totalAfterCheckoutDec = document.querySelector('[data-testid="checkout-total-price"]')?.textContent?.trim();
+
+          // Edit customized Cappuccino from CheckoutSheet -> restore Oat Milk + "חם מאוד" and verify CheckoutSheet reopens with draft intact
+          document.querySelector('[data-testid="checkout-edit-1"]').click();
+          const reopenedTagSheetFromCheckout = Boolean(document.querySelector('[data-testid="tag-bottom-sheet"]'));
+          document.querySelector('[data-testid="tag-pill-tag-decaf"]').click();
+          document.querySelector('[data-testid="tag-pill-tag-oat"]').click();
+          const noteEl2 = document.querySelector('[data-testid="item-note-input"]');
+          noteEl2.value = 'חם מאוד';
+          noteEl2.dispatchEvent(new Event('input', { bubbles: true }));
+          document.querySelector('[data-testid="confirm-customization-btn"]').click();
+
+          const checkoutReopenedAfterEdit = Boolean(document.querySelector('[data-testid="checkout-sheet"]'));
+          const draftNamePreserved = document.querySelector('[data-testid="checkout-name-input"]')?.value === 'דניאל';
+          const draftPhonePreserved = document.querySelector('[data-testid="checkout-phone-input"]')?.value === '054-9876543';
+          const totalRestoredAfterCheckoutEdit = document.querySelector('[data-testid="checkout-total-price"]')?.textContent?.trim();
+
+          // Close CheckoutSheet cleanly so Step CUJ-02 screenshot & CUJ-03 flow proceed from clean storefront
+          document.querySelector('[data-testid="close-checkout-btn"]').click();
+          stateMod.appState.checkoutDraft = { customerName: '', customerPhone: '' };
+
+          return {
+            cardEntriesPresent,
+            editSheetPrefilledOat,
+            editSheetPrefilledNote,
+            editSheetBtnText,
+            totalAfterCardEdit,
+            cardMetaAfterEdit,
+            linesBeforeCheckoutRemove,
+            linesAfterCheckoutRemove,
+            totalAfterCheckoutInc,
+            totalAfterCheckoutDec,
+            reopenedTagSheetFromCheckout,
+            checkoutReopenedAfterEdit,
+            draftNamePreserved,
+            draftPhonePreserved,
+            totalRestoredAfterCheckoutEdit
+          };
+        })()
+        """
+    )
+    if not (
+        cuj02_edit_remove_telemetry.get("cardEntriesPresent")
+        and cuj02_edit_remove_telemetry.get("editSheetPrefilledOat")
+        and cuj02_edit_remove_telemetry.get("editSheetPrefilledNote") == "חם מאוד"
+        and "עדכן בהזמנה" in (cuj02_edit_remove_telemetry.get("editSheetBtnText") or "")
+        and cuj02_edit_remove_telemetry.get("totalAfterCardEdit") == "38 ₪"
+        and cuj02_edit_remove_telemetry.get("linesBeforeCheckoutRemove") == 3
+        and cuj02_edit_remove_telemetry.get("linesAfterCheckoutRemove") == 2
+        and cuj02_edit_remove_telemetry.get("totalAfterCheckoutInc") == "52 ₪"
+        and cuj02_edit_remove_telemetry.get("totalAfterCheckoutDec") == "38 ₪"
+        and cuj02_edit_remove_telemetry.get("reopenedTagSheetFromCheckout")
+        and cuj02_edit_remove_telemetry.get("checkoutReopenedAfterEdit")
+        and cuj02_edit_remove_telemetry.get("draftNamePreserved")
+        and cuj02_edit_remove_telemetry.get("draftPhonePreserved")
+        and cuj02_edit_remove_telemetry.get("totalRestoredAfterCheckoutEdit") == "40 ₪"
+    ):
+        raise AssertionError(f"CUJ-02 customized cart edit/remove assertions failed: {cuj02_edit_remove_telemetry}")
+    cuj02_cart_telemetry["editAndRemoveProof"] = cuj02_edit_remove_telemetry
     s5 = os.path.join(SCREENSHOTS_DIR, "cuj02_cart_updated.png")
     cdp.screenshot(s5)
 

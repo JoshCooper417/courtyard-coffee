@@ -10,6 +10,7 @@ import {
   fetchStoreState,
   getUntaggedCartEntry,
   submitCustomerOrder,
+  updateCartItem,
   updateCartItemQty,
 } from "../state.js";
 import { renderCustomerHeader } from "../components/CustomerHeader.js";
@@ -153,11 +154,62 @@ export function mountCustomerRoute(container, initialStore) {
         const hasTags = Array.isArray(item.tagIds) && item.tagIds.length > 0;
         if (hasTags) {
           appState.activeTagSheetItemId = item.id;
+          appState.activeTagSheetEditKey = null;
+          appState.reopenCheckoutAfterTagSheet = false;
           render();
         } else if (isOpen) {
           addToCart(store, item, [], "", 1);
           render();
         }
+      });
+    });
+
+    // Customized cart entry controls directly on MenuItemCard
+    container.querySelectorAll("[data-inc-cart-key]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!isOpen) return;
+        const key = btn.getAttribute("data-inc-cart-key");
+        const entry = appState.cart.find((c) => c.key === key);
+        if (!entry) return;
+        updateCartItemQty(key, entry.qty + 1);
+        render();
+      });
+    });
+
+    container.querySelectorAll("[data-dec-cart-key]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!isOpen) return;
+        const key = btn.getAttribute("data-dec-cart-key");
+        const entry = appState.cart.find((c) => c.key === key);
+        if (!entry) return;
+        updateCartItemQty(key, entry.qty - 1);
+        render();
+      });
+    });
+
+    container.querySelectorAll("[data-remove-cart-key]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!isOpen) return;
+        const key = btn.getAttribute("data-remove-cart-key");
+        updateCartItemQty(key, 0);
+        render();
+      });
+    });
+
+    container.querySelectorAll("[data-edit-cart-key]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!isOpen) return;
+        const key = btn.getAttribute("data-edit-cart-key");
+        const entry = appState.cart.find((c) => c.key === key);
+        if (!entry) return;
+        appState.activeTagSheetItemId = entry.itemId;
+        appState.activeTagSheetEditKey = entry.key;
+        appState.reopenCheckoutAfterTagSheet = false;
+        render();
       });
     });
 
@@ -199,20 +251,43 @@ export function mountCustomerRoute(container, initialStore) {
     // Mount active TagBottomSheet if open
     if (appState.activeTagSheetItemId && sheetHost) {
       const activeItem = itemsById[appState.activeTagSheetItemId];
+      const editingEntry = appState.activeTagSheetEditKey
+        ? appState.cart.find((c) => c.key === appState.activeTagSheetEditKey) || null
+        : null;
+      const finishTagSheet = () => {
+        appState.activeTagSheetItemId = null;
+        appState.activeTagSheetEditKey = null;
+        if (appState.reopenCheckoutAfterTagSheet) {
+          appState.reopenCheckoutAfterTagSheet = false;
+          appState.isCheckoutOpen = appState.cart.length > 0;
+        }
+        render();
+      };
       if (activeItem) {
         mountTagBottomSheet(
           sheetHost,
           activeItem,
           store,
           (selectedTagIds, note) => {
-            addToCart(store, activeItem, selectedTagIds, note, 1);
-            appState.activeTagSheetItemId = null;
-            render();
+            if (editingEntry) {
+              updateCartItem(store, editingEntry.key, selectedTagIds, note);
+            } else {
+              addToCart(store, activeItem, selectedTagIds, note, 1);
+            }
+            finishTagSheet();
           },
-          () => {
-            appState.activeTagSheetItemId = null;
-            render();
-          }
+          finishTagSheet,
+          editingEntry
+            ? {
+                isEdit: true,
+                initialTagIds: editingEntry.selectedTagIds,
+                initialNote: editingEntry.note,
+                onRemove: () => {
+                  updateCartItemQty(editingEntry.key, 0);
+                  finishTagSheet();
+                },
+              }
+            : {}
         );
       }
     } else if (appState.isCheckoutOpen && sheetHost) {
@@ -238,6 +313,13 @@ export function mountCustomerRoute(container, initialStore) {
         },
         () => {
           appState.isCheckoutOpen = false;
+          render();
+        },
+        (entry) => {
+          appState.isCheckoutOpen = false;
+          appState.activeTagSheetItemId = entry.itemId;
+          appState.activeTagSheetEditKey = entry.key;
+          appState.reopenCheckoutAfterTagSheet = true;
           render();
         }
       );

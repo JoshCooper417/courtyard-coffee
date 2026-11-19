@@ -864,6 +864,39 @@ class TestMilestone1And2Routes(unittest.TestCase):
         self.assertIn("prefers-reduced-motion: reduce", css)
         self.assertIn("html.a11y-high-contrast", css)
 
+    def test_cuj02_customized_cart_edit_and_remove_contracts(self):
+        state_js = (ROOT_DIR / "src" / "state.js").read_text(encoding="utf-8")
+        self.assertIn("export function updateCartItem(", state_js)
+        self.assertIn("export function getCartEntriesForItem(", state_js)
+        self.assertIn("activeTagSheetEditKey", state_js)
+        self.assertIn("reopenCheckoutAfterTagSheet", state_js)
+        self.assertIn("checkoutDraft", state_js)
+
+        tag_sheet_js = (ROOT_DIR / "src" / "components" / "TagBottomSheet.js").read_text(encoding="utf-8")
+        self.assertIn("initialTagIds", tag_sheet_js)
+        self.assertIn("initialNote", tag_sheet_js)
+        self.assertIn("עדכן בהזמנה", tag_sheet_js)
+        self.assertIn('data-testid="remove-from-cart-sheet-btn"', tag_sheet_js)
+
+        card_js = (ROOT_DIR / "src" / "components" / "MenuItemCard.js").read_text(encoding="utf-8")
+        self.assertIn("card-cart-entries-", card_js)
+        self.assertIn("edit-card-entry-", card_js)
+        self.assertIn("remove-card-entry-", card_js)
+        self.assertIn("dec-card-entry-", card_js)
+        self.assertIn("inc-card-entry-", card_js)
+
+        checkout_js = (ROOT_DIR / "src" / "components" / "CheckoutSheet.js").read_text(encoding="utf-8")
+        self.assertIn("checkout-edit-", checkout_js)
+        self.assertIn("checkout-remove-", checkout_js)
+        self.assertIn("checkout-dec-", checkout_js)
+        self.assertIn("checkout-inc-", checkout_js)
+        self.assertIn("onEditCartEntry", checkout_js)
+
+        customer_js = (ROOT_DIR / "src" / "routes" / "Customer.js").read_text(encoding="utf-8")
+        self.assertIn("updateCartItem", customer_js)
+        self.assertIn("data-edit-cart-key", customer_js)
+        self.assertIn("data-remove-cart-key", customer_js)
+
 
 if __name__ == "__main__":
     unittest.main()

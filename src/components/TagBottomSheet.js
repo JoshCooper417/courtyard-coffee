@@ -2,8 +2,12 @@
  * TagBottomSheet Component — Hebrew RTL modifier tag selector & kitchen note input.
  */
 
-export function mountTagBottomSheet(hostEl, item, store, onConfirm, onClose) {
+import { escapeHtml } from "../state.js";
+
+export function mountTagBottomSheet(hostEl, item, store, onConfirm, onClose, options = {}) {
   const isOpen = Boolean(store?.isOpen);
+  const isEdit = Boolean(options?.isEdit);
+  const onRemove = typeof options?.onRemove === "function" ? options.onRemove : null;
   const tagsById = {};
   for (const t of store?.globalTags || []) {
     tagsById[t.id] = t;
@@ -12,8 +16,10 @@ export function mountTagBottomSheet(hostEl, item, store, onConfirm, onClose) {
     .map((tid) => tagsById[tid])
     .filter(Boolean);
 
-  const selectedIds = new Set();
-  let noteValue = "";
+  const selectedIds = new Set(
+    (options?.initialTagIds || []).filter((tid) => tagsById[tid] && tagsById[tid].inStock)
+  );
+  let noteValue = String(options?.initialNote || "");
 
   function handleKeyDown(e) {
     if (e.key === "Escape") {
@@ -110,7 +116,7 @@ export function mountTagBottomSheet(hostEl, item, store, onConfirm, onClose) {
               class="sheet-input"
               data-testid="item-note-input"
               placeholder="הערה למנה (למשל: חם מאוד)..."
-              value="${noteValue.replace(/"/g, "&quot;")}"
+              value="${escapeHtml(noteValue)}"
             />
           </div>
 
@@ -120,8 +126,24 @@ export function mountTagBottomSheet(hostEl, item, store, onConfirm, onClose) {
             data-testid="confirm-customization-btn"
             ${!isOpen ? "disabled" : ""}
           >
-            ${isOpen ? `הוסף להזמנה • ${unitPrice} ₪` : "החנות סגורה כעת"}
+            ${
+              isOpen
+                ? `${isEdit ? "עדכן בהזמנה" : "הוסף להזמנה"} • ${unitPrice} ₪`
+                : "החנות סגורה כעת"
+            }
           </button>
+
+          ${
+            isEdit && onRemove && isOpen
+              ? `<button
+                  type="button"
+                  class="sheet-remove-btn"
+                  data-testid="remove-from-cart-sheet-btn"
+                >
+                  הסר פריט מהעגלה
+                </button>`
+              : ""
+          }
         </div>
       </div>
     `;
@@ -165,6 +187,17 @@ export function mountTagBottomSheet(hostEl, item, store, onConfirm, onClose) {
           window.removeEventListener("keydown", handleKeyDown);
         }
         onConfirm(Array.from(selectedIds), noteValue);
+      });
+    }
+
+    const removeBtn = hostEl.querySelector('[data-testid="remove-from-cart-sheet-btn"]');
+    if (removeBtn && onRemove) {
+      removeBtn.addEventListener("click", () => {
+        if (!isOpen) return;
+        if (typeof window !== "undefined") {
+          window.removeEventListener("keydown", handleKeyDown);
+        }
+        onRemove();
       });
     }
   }

@@ -167,6 +167,7 @@ button {
 
 .menu-card {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   background: var(--bg-card);
@@ -289,6 +290,114 @@ button {
   min-width: 18px;
   text-align: center;
   color: var(--text-espresso);
+}
+
+/* Customized Cart Entries on Menu Card & Checkout Sheet */
+.card-cart-entries {
+  flex: 1 0 100%;
+  border-top: 1px dashed var(--border-warm);
+  padding-top: 8px;
+  margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-cart-entry-row {
+  background: var(--bg-courtyard);
+  border: 1px solid var(--border-warm);
+  border-radius: 10px;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-cart-entry-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.card-cart-entry-meta {
+  color: var(--text-espresso);
+  font-weight: 600;
+}
+
+.card-cart-entry-price {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--color-sage);
+  white-space: nowrap;
+}
+
+.card-cart-entry-actions,
+.checkout-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.checkout-item-actions {
+  margin-top: 6px;
+}
+
+.inline-stepper.compact {
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.stepper-btn.compact {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.cart-entry-btn {
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1px solid var(--border-warm);
+  background: var(--bg-card);
+  color: var(--text-espresso);
+}
+
+.cart-entry-btn.edit {
+  border-color: rgba(63, 98, 77, 0.35);
+  color: var(--color-sage);
+}
+
+.cart-entry-btn.remove {
+  border-color: rgba(184, 74, 57, 0.35);
+  color: var(--color-danger);
+}
+
+.cart-entry-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.checkout-summary-item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.sheet-remove-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(184, 74, 57, 0.4);
+  background: rgba(184, 74, 57, 0.08);
+  color: var(--color-danger);
+  font-weight: 700;
+  font-size: 0.95rem;
 }
 
 /* Sticky Cart Bar */

@@ -2,7 +2,7 @@
  * MenuItemCard Component — supports instant inline stepper for untagged items
  * and TagBottomSheet trigger for tagged items.
  */
-import { getUntaggedCartEntry } from "../state.js";
+import { escapeHtml, getCartEntriesForItem, getUntaggedCartEntry } from "../state.js";
 
 export function renderMenuItemCard(item, store, photosById) {
   const isOpen = Boolean(store?.isOpen);
@@ -10,6 +10,7 @@ export function renderMenuItemCard(item, store, photosById) {
   const thumbUrl = item.photo || photosById[item.photoId] || "";
   const hasTags = Array.isArray(item.tagIds) && item.tagIds.length > 0;
   const untaggedEntry = !hasTags ? getUntaggedCartEntry(item.id) : null;
+  const taggedEntries = hasTags ? getCartEntriesForItem(item.id) : [];
   const isOut = !item.inStock;
   const cardDisabled = isOut || (!isOpen && !hasTags);
 
@@ -82,6 +83,67 @@ export function renderMenuItemCard(item, store, photosById) {
           ${actionHtml}
         </div>
       </div>
+      ${
+        taggedEntries.length > 0
+          ? `<div class="card-cart-entries" data-testid="card-cart-entries-${item.id}">
+              ${taggedEntries
+                .map((entry, idx) => {
+                  const tagsLabel =
+                    entry.tagsHe && entry.tagsHe.length > 0
+                      ? entry.tagsHe.join(", ")
+                      : "ללא תוספות";
+                  const noteLabel = entry.note ? ` • "${escapeHtml(entry.note)}"` : "";
+                  const safeKey = escapeHtml(entry.key);
+                  return `
+                    <div class="card-cart-entry-row" data-testid="card-cart-entry-${item.id}-${idx}">
+                      <div class="card-cart-entry-info">
+                        <span class="card-cart-entry-meta">${escapeHtml(tagsLabel)}${noteLabel}</span>
+                        <span class="card-cart-entry-price">${entry.lineTotal} ₪</span>
+                      </div>
+                      <div class="card-cart-entry-actions">
+                        <div class="inline-stepper compact" role="group" aria-label="כמות עבור ${escapeHtml(itemTitleHe)}">
+                          <button
+                            type="button"
+                            class="stepper-btn compact"
+                            data-testid="dec-card-entry-${item.id}-${idx}"
+                            data-dec-cart-key="${safeKey}"
+                            aria-label="הפחת כמות של ${escapeHtml(itemTitleHe)}"
+                            ${!isOpen ? "disabled" : ""}
+                          >−</button>
+                          <span class="stepper-qty" data-testid="qty-card-entry-${item.id}-${idx}">${entry.qty}</span>
+                          <button
+                            type="button"
+                            class="stepper-btn compact"
+                            data-testid="inc-card-entry-${item.id}-${idx}"
+                            data-inc-cart-key="${safeKey}"
+                            aria-label="הוסף כמות של ${escapeHtml(itemTitleHe)}"
+                            ${!isOpen ? "disabled" : ""}
+                          >+</button>
+                        </div>
+                        <button
+                          type="button"
+                          class="cart-entry-btn edit"
+                          data-testid="edit-card-entry-${item.id}-${idx}"
+                          data-edit-cart-key="${safeKey}"
+                          aria-label="ערוך ${escapeHtml(itemTitleHe)}"
+                          ${!isOpen ? "disabled" : ""}
+                        >ערוך</button>
+                        <button
+                          type="button"
+                          class="cart-entry-btn remove"
+                          data-testid="remove-card-entry-${item.id}-${idx}"
+                          data-remove-cart-key="${safeKey}"
+                          aria-label="הסר ${escapeHtml(itemTitleHe)} מהעגלה"
+                          ${!isOpen ? "disabled" : ""}
+                        >הסר</button>
+                      </div>
+                    </div>
+                  `;
+                })
+                .join("")}
+            </div>`
+          : ""
+      }
     </article>
   `;
 }

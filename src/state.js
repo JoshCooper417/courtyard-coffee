@@ -2,13 +2,27 @@
  * Central client state, cart management, and API helper for Courtyard Coffee.
  */
 
+export function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export const appState = {
   store: null,
   cart: [],
   selectedCategory: "All",
   activeOrder: null,
   activeTagSheetItemId: null,
+  activeTagSheetEditKey: null,
+  reopenCheckoutAfterTagSheet: false,
   isCheckoutOpen: false,
+  checkoutDraft: {
+    customerName: "",
+    customerPhone: "",
+  },
   activeLegalModal: null,
 };
 
@@ -17,7 +31,7 @@ export function buildCartKey(itemId, selectedTagIds = [], note = "") {
   return `${itemId}::${sortedTagIds.join(",")}::${String(note || "").trim()}`;
 }
 
-export function addToCart(store, item, selectedTagIds = [], note = "", qtyDelta = 1) {
+function resolveCartCustomization(store, item, selectedTagIds = [], note = "") {
   const tagsById = {};
   for (const t of store?.globalTags || []) {
     tagsById[t.id] = t;
@@ -32,7 +46,22 @@ export function addToCart(store, item, selectedTagIds = [], note = "", qtyDelta 
   );
   const unitPrice = Number(item.price || 0) + tagPriceSum;
   const trimmedNote = String(note || "").trim();
-  const key = buildCartKey(item.id, validTagIds, trimmedNote);
+  return {
+    key: buildCartKey(item.id, validTagIds, trimmedNote),
+    validTags,
+    validTagIds,
+    unitPrice,
+    trimmedNote,
+  };
+}
+
+export function addToCart(store, item, selectedTagIds = [], note = "", qtyDelta = 1) {
+  const { key, validTags, validTagIds, unitPrice, trimmedNote } = resolveCartCustomization(
+    store,
+    item,
+    selectedTagIds,
+    note
+  );
 
   const existing = appState.cart.find((c) => c.key === key);
   if (existing) {
@@ -64,6 +93,50 @@ export function addToCart(store, item, selectedTagIds = [], note = "", qtyDelta 
   return entry;
 }
 
+export function updateCartItem(store, existingKey, selectedTagIds = [], note = "") {
+  const idx = appState.cart.findIndex((c) => c.key === existingKey);
+  if (idx === -1) return null;
+
+  const existing = appState.cart[idx];
+  const item =
+    (store?.menuItems || []).find((i) => i.id === existing.itemId) || {
+      id: existing.itemId,
+      price: existing.unitPrice,
+      nameHe: existing.nameHe,
+      nameEn: existing.nameEn,
+    };
+
+  const { key: newKey, validTags, validTagIds, unitPrice, trimmedNote } = resolveCartCustomization(
+    store,
+    item,
+    selectedTagIds,
+    note
+  );
+
+  const mergeIdx = appState.cart.findIndex((c, i) => i !== idx && c.key === newKey);
+  if (mergeIdx !== -1) {
+    const target = appState.cart[mergeIdx];
+    target.qty += existing.qty;
+    target.unitPrice = unitPrice;
+    target.lineTotal = target.qty * target.unitPrice;
+    appState.cart.splice(idx, 1);
+    return target;
+  }
+
+  const updated = {
+    ...existing,
+    key: newKey,
+    unitPrice,
+    lineTotal: unitPrice * existing.qty,
+    selectedTagIds: validTagIds,
+    tagsHe: validTags.map((t) => t.nameHe || t.labelHe || ""),
+    tagsEn: validTags.map((t) => t.nameEn || t.labelEn || ""),
+    note: trimmedNote,
+  };
+  appState.cart[idx] = updated;
+  return updated;
+}
+
 export function updateCartItemQty(key, nextQty) {
   const idx = appState.cart.findIndex((c) => c.key === key);
   if (idx === -1) return;
@@ -73,6 +146,10 @@ export function updateCartItemQty(key, nextQty) {
     appState.cart[idx].qty = nextQty;
     appState.cart[idx].lineTotal = nextQty * appState.cart[idx].unitPrice;
   }
+}
+
+export function getCartEntriesForItem(itemId) {
+  return appState.cart.filter((c) => c.itemId === itemId);
 }
 
 export function getUntaggedCartEntry(itemId) {
@@ -92,6 +169,7 @@ export function getCartTotals() {
 
 export function clearCart() {
   appState.cart = [];
+  appState.checkoutDraft = { customerName: "", customerPhone: "" };
 }
 
 export async function fetchStoreState() {
