@@ -14,14 +14,14 @@ function escapeHtml(str) {
 }
 
 export function getLegalContactInfo(store) {
-  const businessNameHe = "קפה בחצר";
-  const ownerNameHe = (store?.ownerNameHe || "").trim() || "הנהלת קפה בחצר";
+  const businessNameHe = "קפה עדן";
+  const ownerNameHe = (store?.ownerNameHe || "").trim() || "הנהלת קפה עדן";
   const contactPhone = (store?.contactPhone || store?.bitPhone || "050-0000000").trim();
   const contactEmail = (store?.contactEmail || "").trim();
   const businessAddressHe = (store?.businessAddressHe || "").trim();
   const accessibilityPhysicalHe =
     (store?.accessibilityPhysicalHe || "").trim() ||
-    "הכניסה לחצר בית הקפה נגישה במפלס הרחוב, קיימים מקומות ישיבה נגישים בחצר, וצוות המקום עומד לרשותכם להגשת סיוע אישי בהזמנה ובאיסוף.";
+    "הכניסה לבית הקפה קפה עדן נגישה במפלס הקרקע, קיימים מקומות ישיבה נגישים, וצוות המקום עומד לרשותכם להגשת סיוע אישי בהזמנה ובאיסוף.";
 
   return {
     businessNameHe,
@@ -61,7 +61,7 @@ export function renderStoreFooter() {
           מדיניות פרטיות (תיקון 13)
         </button>
       </div>
-      <p class="store-footer-copy">© קפה בחצר — הזמנה מקוונת נגישה ושקופה</p>
+      <p class="store-footer-copy">© קפה עדן — קפה בטבע • הזמנה מקוונת נגישה ושקופה</p>
     </footer>
   `;
 }

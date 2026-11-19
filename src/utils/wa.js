@@ -29,7 +29,7 @@ export function buildHebrewWhatsAppUrl(rawPhoneOrOrder, maybeOrder = {}) {
   const items = Array.isArray(order.items) ? order.items : [];
 
   const lines = [
-    `שלום ${customerName}! ההזמנה שלך (#${orderNumber}) מ-קפה בחצר מוכנה ☕`,
+    `שלום ${customerName}! ההזמנה שלך (#${orderNumber}) מ-קפה עדן מוכנה`,
     "פירוט הזמנה:",
   ];
 

@@ -95,7 +95,7 @@ export function mountKdsRoute(container, initialStore) {
       <header class="admin-topbar kds-topbar">
         <div class="kds-brand-col">
           <div class="kds-title-row">
-            <h1 class="kds-main-title">Courtyard Coffee — Barista KDS</h1>
+            <h1 class="kds-main-title">Café Eden — Barista KDS</h1>
             <span
               class="status-badge ${isOpen ? "open" : "closed"}"
               data-testid="kds-status-badge"
@@ -180,7 +180,7 @@ export function mountKdsRoute(container, initialStore) {
 
   function renderControls() {
     if (!controlsRegion) return;
-    const currentNote = store?.closedNoteHe || store?.closedMessageHe || "סגור כעת, נשוב בקרוב";
+    const currentNote = store?.closedNoteHe || store?.closedMessageHe || "קפה עדן סגור כעת, נשוב בקרוב";
 
     controlsRegion.innerHTML = `
       <section class="kds-ops-panel">
@@ -197,7 +197,7 @@ export function mountKdsRoute(container, initialStore) {
             dir="rtl"
             class="kds-closed-note-input"
             data-testid="kds-closed-note-input"
-            placeholder="סגור כעת, נשוב בקרוב"
+            placeholder="קפה עדן סגור כעת, נשוב בקרוב"
             value="${escapeHtml(currentNote)}"
           />
         </div>

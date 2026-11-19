@@ -219,7 +219,7 @@ class TestMilestone1And2Utils(unittest.TestCase):
     def test_sqlite_seed_state_invariants(self):
         store = get_store_state(db_path=self.db_path)
         self.assertIs(store.get("isOpen"), True)
-        self.assertEqual(store.get("closedNoteHe"), "סגור כעת, נשוב בקרוב")
+        self.assertEqual(store.get("closedNoteHe"), "קפה עדן סגור כעת, נשוב בקרוב")
         self.assertEqual(store.get("bitPhone"), "050-0000000")
         self.assertEqual(store.get("adminPin"), "1234")
         self.assertEqual(store.get("nextOrderNumber"), 101)
@@ -302,10 +302,11 @@ class TestMilestone1And2Utils(unittest.TestCase):
             },
         )
         self.assertTrue(url.startswith("https://wa.me/972549876543?text="))
-        self.assertIn("%E2%98%95", url)
         parsed = urlparse(url)
         text = parse_qs(parsed.query).get("text", [""])[0]
-        self.assertIn("☕", text)
+        self.assertIn("קפה עדן", text)
+        self.assertNotIn("קפה בחצר", text)
+        self.assertNotIn("☕", text)
         self.assertIn("101", text)
         self.assertIn("נועה", text)
         self.assertIn("קפוצ׳ינו", text)
